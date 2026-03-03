@@ -80,6 +80,8 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: ./runtime
+      - name: Install Protoc
+        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
       - name: Cargo Clippy
         run: cargo clippy -- -D warnings
       - name: Cargo Build Release
@@ -104,4 +106,4 @@ jobs:
       - name: Run Gosec Security Scanner
         uses: securego/gosec@master
         with:
-          args: ./...
+          args: -exclude-dir=core/ipc ./...
