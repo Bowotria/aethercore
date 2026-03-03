@@ -9,8 +9,8 @@ vendor/
 # (We don't commit vendor folder per strict rules)
 
 # Generated files
-*.pb.go
-*_grpc.pb.go
+# *.pb.go
+# *_grpc.pb.go
 dist/
 coverage.txt
 coverage.out
