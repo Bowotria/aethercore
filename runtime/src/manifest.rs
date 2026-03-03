@@ -1,9 +1,10 @@
+#![allow(dead_code)]
+
 use serde::Deserialize;
 use std::fs;
 use std::path::Path;
 
 #[derive(Debug, Deserialize)]
-#[allow(dead_code)]
 pub struct Manifest {
     pub sandbox: SandboxConfig,
     pub tools: Vec<ToolConfig>,
@@ -15,7 +16,6 @@ pub struct SandboxConfig {
 }
 
 #[derive(Debug, Deserialize)]
-#[allow(dead_code)]
 pub struct ToolConfig {
     pub name: String,
     pub version: String,
