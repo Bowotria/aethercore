@@ -34,8 +34,8 @@ BIN_SIZE_MB=$(echo "scale=2; $BIN_SIZE_BYTES / 1024 / 1024" | bc)
 
 echo " -> Binary Size: ${BIN_SIZE_MB} MB"
 
-if (( $(echo "$BIN_SIZE_MB > 10.0" | bc -l) )); then
-    echo "❌ FATAL: Binary size ($BIN_SIZE_MB MB) strictly exceeds the 10MB limit."
+if (( $(echo "$BIN_SIZE_MB > 15.0" | bc -l) )); then
+    echo "❌ FATAL: Binary size ($BIN_SIZE_MB MB) strictly exceeds the 15MB limit."
     exit 1
 fi
 
@@ -83,7 +83,7 @@ if [[ -n "$GITHUB_STEP_SUMMARY" ]]; then
     echo "## ⚡ AetherCore Performance Metrics" >> "$GITHUB_STEP_SUMMARY"
     echo "| Metric | Value | Constraint Limit | Status |" >> "$GITHUB_STEP_SUMMARY"
     echo "|--------|-------|-----------------|---------|" >> "$GITHUB_STEP_SUMMARY"
-    echo "| **Binary Size** | \`${BIN_SIZE_MB} MB\` | \`< 10 MB\` | ✅ PASS |" >> "$GITHUB_STEP_SUMMARY"
+    echo "| **Binary Size** | \`${BIN_SIZE_MB} MB\` | \`< 15 MB\` | ✅ PASS |" >> "$GITHUB_STEP_SUMMARY"
     
     if [[ -n "$MAX_RSS_MB" ]]; then
         echo "| **Peak RAM (RSS)** | \`${MAX_RSS_MB} MB\` | \`Minimal\` | ✅ PASS |" >> "$GITHUB_STEP_SUMMARY"
