@@ -61,8 +61,8 @@ func authCmd(mode string) {
 	}
 	state := base64.URLEncoding.EncodeToString(stateBytes)
 
-	// aethercore.dev is the placeholder cloud auth domain
-	url := fmt.Sprintf("https://auth.aethercore.dev/%s?redirect_uri=http://localhost:9092/callback&state=%s", mode, state)
+	// auth.aethercore.brainexia.com is the AetherCore cloud auth domain
+	url := fmt.Sprintf("https://auth.aethercore.brainexia.com/%s?redirect_uri=http://localhost:9092/callback&state=%s", mode, state)
 	fmt.Printf("Opening browser to %s\n", url)
 	openBrowser(url)
 
@@ -125,7 +125,7 @@ func deleteCmd() {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, "https://auth.aethercore.dev/account", nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, "https://auth.aethercore.brainexia.com/account", nil)
 	if err != nil {
 		log.Fatalf("Failed to create request: %v", err)
 	}

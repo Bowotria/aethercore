@@ -21,7 +21,7 @@ import (
 
 const (
 	tokenFileName = "token"
-	authDomain    = "auth.aethercore.dev"
+	authDomain    = "auth.aethercore.brainexia.com"
 )
 
 var (

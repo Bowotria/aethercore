@@ -11,7 +11,7 @@
 
 **DO NOT open a public GitHub issue.**
 
-Email: security@aethercore.dev
+Email: security@aethercore.brainexia.com
 PGP key: [coming soon]
 
 Include:

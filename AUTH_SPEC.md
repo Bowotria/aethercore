@@ -51,7 +51,7 @@ Without any cloud component, there is no way to know if AetherCore is being used
 ### First-Time Setup (Happens Once)
 
 1. **User runs `aether onboard`** -> CLI detects no token, opens browser.
-2. **Browser opens -> aethercore.dev/signup** -> Email+Password, Google, or GitHub.
+2. **Browser opens -> aethercore.brainexia.com/signup** -> Email+Password, Google, or GitHub.
 3. **User creates account** -> Cloud saves minimal analytics data.
 4. **Auth cloud issues JWT token** -> Signed with RS256, 30 days valid.
 5. **JWT saved to user's machine** -> `~/.aether/token` (chmod 600).
@@ -61,7 +61,7 @@ Without any cloud component, there is no way to know if AetherCore is being used
 
 - **Every Request**: AetherCore verifies JWT locally using bundled public key.
 - **Valid Token**: Proceed locally.
-- **Expired Token**: Silent background refresh once per 30 days to `auth.aethercore.dev/refresh`.
+- **Expired Token**: Silent background refresh once per 30 days to `auth.aethercore.brainexia.com/refresh`.
 
 ## 04. JWT Token Design
 
@@ -74,13 +74,13 @@ Without any cloud component, there is no way to know if AetherCore is being used
   "iat": 1740000000,
   "exp": 1742592000,
   "ver": "0.1.0",
-  "iss": "auth.aethercore.dev"
+  "iss": "auth.aethercore.brainexia.com"
 }
 ```
 
 ### Verification
 
-- Offline, using bundled public key from `auth.aethercore.dev/.well-known/jwks.json`.
+- Offline, using bundled public key from `auth.aethercore.brainexia.com/.well-known/jwks.json`.
 
 ### Storage
 
