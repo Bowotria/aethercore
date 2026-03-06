@@ -19,6 +19,16 @@ linters:
     - ireturn       # Interface return types are idiomatic for our adapter pattern
     - varnamelen    # Short variable names are idiomatic Go (ctx, t, e, err)
     - tagliatelle   # JSON tag naming convention enforcement is too strict
+    - mnd           # Magic numbers are documented via named constants where it matters
+    - gochecknoglobals  # Logger and telemetry singletons are intentional design
+    - testpackage   # White-box testing with internal access is a valid Go pattern
+    - forbidigo     # CLI commands legitimately use fmt.Print* for user-facing output
+    - wrapcheck     # Not all error sites need explicit wrapping — too strict
+    - lll           # Line length is flexible; long log calls are acceptable
+    - protogetter   # Style preference; direct proto field access is fine in Layer 0
+    - err113        # Static sentinel errors aren't required at every fmt.Errorf call
+    - usetesting    # t.Context() isn't universally available across Go versions
+    - tenv          # Deprecated since v1.64.0; replaced by usetesting
 
 linters-settings:
   gocognit:
@@ -55,6 +65,11 @@ linters-settings:
 
   govet:
     enable-all: true
+    disable:
+      - fieldalignment  # Struct field reordering is a micro-opt; not required for correctness
+
+  nestif:
+    min-complexity: 8  # Default 5 is too strict for sandbox dispatch logic
 
   staticcheck:
     checks: ["all"]
