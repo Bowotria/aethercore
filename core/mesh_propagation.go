@@ -12,12 +12,13 @@ import (
 
 // PropagatedTask carries an LLM context from a source node to an idle edge node.
 type PropagatedTask struct {
-	TaskID    string   `json:"task_id"`
-	SourceID  string   `json:"source_id"`
-	Prompt    string   `json:"prompt"`
-	Tools     []string `json:"tools"`
-	Model     string   `json:"model"`
-	Timestamp int64    `json:"timestamp"`
+	TaskID         string   `json:"task_id"`
+	SourceID       string   `json:"source_id"`
+	Prompt         string   `json:"prompt"`
+	Tools          []string `json:"tools"`
+	Model          string   `json:"model"`
+	Timestamp      int64    `json:"timestamp"`
+	DeadlineUnixNs int64    `json:"deadline_unix_ns,omitempty"` // 0 means no deadline
 }
 
 // PropagatedResult is the response returned by the edge node after executing
