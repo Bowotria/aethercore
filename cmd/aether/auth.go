@@ -18,7 +18,6 @@ import (
 var ErrUnsupportedPlatform = errors.New("unsupported platform")
 
 // authCmd groups the login and onboard logic.
-//
 func authCmd(mode string) {
 	fmt.Printf("Starting AetherCore %s process...\n", mode)
 
