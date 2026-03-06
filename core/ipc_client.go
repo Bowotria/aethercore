@@ -48,7 +48,7 @@ func (c *SandboxClient) Close() error {
 }
 
 // ExecuteTool forwards a tool execution request to the Rust sandbox.
-func (c *SandboxClient) ExecuteTool(ctx context.Context, toolName string, payloadJSON string) (string, error) {
+func (c *SandboxClient) ExecuteTool(ctx context.Context, toolName, payloadJSON string) (string, error) {
 	req := &ipc.ToolRequest{
 		ToolName:    toolName,
 		PayloadJson: payloadJSON,
@@ -59,9 +59,9 @@ func (c *SandboxClient) ExecuteTool(ctx context.Context, toolName string, payloa
 		return "", fmt.Errorf("rpc failure bridging to rust sandbox: %w", err)
 	}
 
-	if !res.Success {
-		return "", fmt.Errorf("sandbox rejected execution: %s", res.ErrorMessage)
+	if !res.GetSuccess() {
+		return "", fmt.Errorf("sandbox rejected execution: %s", res.GetErrorMessage()) //nolint:err113 // dynamic error is appropriate here; caller logs it
 	}
 
-	return res.OutputJson, nil
+	return res.GetOutputJson(), nil
 }
