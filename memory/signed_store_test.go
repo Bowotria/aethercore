@@ -8,6 +8,7 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
+	"errors"
 	"math/big"
 	"net"
 	"testing"
@@ -121,7 +122,7 @@ func TestSignedStore_ExpiredToken(t *testing.T) {
 
 	req := &SignedQueryRequest{Token: token, CertDER: leafDER}
 	_, err = sms.AuthorisedQuery(req)
-	if err != ErrTokenExpired {
+	if !errors.Is(err, ErrTokenExpired) {
 		t.Errorf("expected ErrTokenExpired, got %v", err)
 	}
 }

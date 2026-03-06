@@ -40,7 +40,7 @@ func NewEphemeralLog() *EphemeralLog {
 }
 
 // Record appends an event to the log.
-func (l *EphemeralLog) Record(ev EphemeralEvent) {
+func (l *EphemeralLog) Record(ev EphemeralEvent) { //nolint:gocritic // EphemeralEvent is 88 bytes but value semantics are intentional for immutability
 	if ev.Timestamp.IsZero() {
 		ev.Timestamp = time.Now()
 	}
@@ -113,10 +113,10 @@ func (l *EphemeralLog) TaskCount() int {
 func WithTaskDeadline(ctx context.Context, task *PropagatedTask) (context.Context, context.CancelFunc) {
 	if task.DeadlineUnixNs <= 0 {
 		// No deadline — return a plain cancel-only context.
-		return context.WithCancel(ctx)
+		return context.WithCancel(ctx) //nolint:gocritic // cancel func is returned to caller per function contract
 	}
 	deadline := time.Unix(0, task.DeadlineUnixNs)
-	return context.WithDeadline(ctx, deadline)
+	return context.WithDeadline(ctx, deadline) //nolint:gocritic // cancel func is returned to caller per function contract
 }
 
 // SetTaskDeadline stamps a PropagatedTask with an absolute deadline derived

@@ -1,6 +1,7 @@
 package core
 
 import (
+	"bytes"
 	"crypto/tls"
 	"crypto/x509"
 	"io/fs"
@@ -57,7 +58,7 @@ func TestLoadOrCreateIdentity_IdempotentOnReload(t *testing.T) {
 	}
 
 	// CA cert bytes must be identical (same CA, not regenerated).
-	if string(id1.CACertPEM) != string(id2.CACertPEM) {
+	if !bytes.Equal(id1.CACertPEM, id2.CACertPEM) {
 		t.Fatal("CA cert changed between calls — identity was unexpectedly regenerated")
 	}
 }
@@ -85,9 +86,9 @@ func TestLoadOrCreateIdentity_CertFilesHaveCorrectPermissions(t *testing.T) {
 		if walkErr != nil || d.IsDir() {
 			return walkErr
 		}
-		info, err := os.Stat(path)
-		if err != nil {
-			return err
+		info, statErr := os.Stat(path)
+		if statErr != nil {
+			return statErr
 		}
 		if mode := info.Mode().Perm(); mode != 0o600 {
 			t.Errorf("file %s has mode %o, want 0600", path, mode)

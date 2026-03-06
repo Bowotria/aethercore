@@ -35,7 +35,7 @@ var ErrMeshAlreadyRunning = errors.New("mesh: peer discovery already running")
 // Kept minimal to fit within a single UDP datagram.
 type PeerBeacon struct {
 	NodeID    string `json:"node_id"`
-	GRPCAddr  string `json:"grpc_addr"`  // host:port for task propagation
+	GRPCAddr  string `json:"grpc_addr"` // host:port for task propagation
 	Version   string `json:"version"`
 	Timestamp int64  `json:"ts"` // Unix seconds
 }
@@ -51,12 +51,12 @@ type Peer struct {
 // MeshDiscovery runs Layer 3 UDP broadcast peer discovery on the local network.
 // It both announces this node to peers AND listens for peer announcements.
 type MeshDiscovery struct {
-	beacon    PeerBeacon
-	peers     map[string]*Peer // keyed by NodeID
-	mu        sync.RWMutex
-	quit      chan struct{}
-	stopOnce  sync.Once
-	running   bool
+	beacon   PeerBeacon
+	peers    map[string]*Peer // keyed by NodeID
+	mu       sync.RWMutex
+	quit     chan struct{}
+	stopOnce sync.Once
+	running  bool
 }
 
 // NewMeshDiscovery creates a MeshDiscovery instance.
@@ -141,57 +141,70 @@ func (m *MeshDiscovery) listenLoop(conn net.PacketConn, log *slog.Logger) {
 		default:
 		}
 
-		// Short deadline so we can check quit channel regularly.
 		_ = conn.SetReadDeadline(time.Now().Add(2 * time.Second))
-		n, addr, err := conn.ReadFrom(buf)
-		if err != nil {
-			// Timeout errors are expected — just loop.
-			if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
-				continue
-			}
-			select {
-			case <-m.quit:
+		n, addr, readErr := conn.ReadFrom(buf)
+		if readErr != nil {
+			if m.handleReadError(readErr, log) {
 				return
-			default:
-				log.Warn("mesh_udp_read_error", slog.String("error", err.Error()))
-				continue
 			}
+			continue
 		}
 
 		var beacon PeerBeacon
-		if err := json.Unmarshal(buf[:n], &beacon); err != nil {
+		if unmarshalErr := json.Unmarshal(buf[:n], &beacon); unmarshalErr != nil {
 			log.Debug("mesh_beacon_parse_error",
 				slog.String("from", addr.String()),
-				slog.String("error", err.Error()),
+				slog.String("error", unmarshalErr.Error()),
 			)
 			continue
 		}
 
-		// Ignore our own broadcasts.
-		if beacon.NodeID == m.beacon.NodeID {
-			continue
-		}
+		m.upsertPeer(beacon, addr.String(), log)
+	}
+}
 
-		m.mu.Lock()
-		existing, seen := m.peers[beacon.NodeID]
-		if !seen {
-			log.Info("mesh_peer_discovered",
-				slog.String("peer_id", beacon.NodeID),
-				slog.String("grpc_addr", beacon.GRPCAddr),
-				slog.String("from", addr.String()),
-			)
+// handleReadError returns true if the listen loop should exit (quit signal received).
+// Timeout errors are expected during normal shutdown polling and return false.
+func (m *MeshDiscovery) handleReadError(err error, log *slog.Logger) bool {
+	var netErr net.Error
+	if errors.As(err, &netErr) && netErr.Timeout() {
+		return false
+	}
+	select {
+	case <-m.quit:
+		return true
+	default:
+		log.Warn("mesh_udp_read_error", slog.String("error", err.Error()))
+		return false
+	}
+}
+
+// upsertPeer registers or refreshes a discovered peer, ignoring self-beacons.
+func (m *MeshDiscovery) upsertPeer(beacon PeerBeacon, from string, log *slog.Logger) {
+	if beacon.NodeID == m.beacon.NodeID {
+		return
+	}
+
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	existing, seen := m.peers[beacon.NodeID]
+	if !seen {
+		log.Info("mesh_peer_discovered",
+			slog.String("peer_id", beacon.NodeID),
+			slog.String("grpc_addr", beacon.GRPCAddr),
+			slog.String("from", from),
+		)
+	}
+	if !seen || existing.GRPCAddr != beacon.GRPCAddr {
+		m.peers[beacon.NodeID] = &Peer{
+			NodeID:   beacon.NodeID,
+			GRPCAddr: beacon.GRPCAddr,
+			Version:  beacon.Version,
+			LastSeen: time.Now(),
 		}
-		if !seen || existing.GRPCAddr != beacon.GRPCAddr {
-			m.peers[beacon.NodeID] = &Peer{
-				NodeID:   beacon.NodeID,
-				GRPCAddr: beacon.GRPCAddr,
-				Version:  beacon.Version,
-				LastSeen: time.Now(),
-			}
-		} else {
-			existing.LastSeen = time.Now()
-		}
-		m.mu.Unlock()
+	} else {
+		existing.LastSeen = time.Now()
 	}
 }
 

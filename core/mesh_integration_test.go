@@ -161,7 +161,6 @@ func TestFiveNodeMesh(t *testing.T) {
 	// ── 1. Start all propagator servers ──────────────────────────────────────
 	for _, n := range nodes {
 		n.addr = freeAddr(t)
-		n := n // capture for goroutine
 		go func() {
 			_ = n.propagator.Listen(ctx, n.addr)
 		}()
@@ -171,7 +170,6 @@ func TestFiveNodeMesh(t *testing.T) {
 	// ── 2. Register task handler on nodes 1-4 ────────────────────────────────
 	// Each peer stores a unique result embedding and records lifecycle events.
 	for _, peer := range nodes[1:] {
-		peer := peer
 		peer.propagator.SetHandler(func(task *core.PropagatedTask) *core.PropagatedResult {
 			// Record task receipt.
 			peer.ephLog.Record(core.EphemeralEvent{
@@ -211,7 +209,7 @@ func TestFiveNodeMesh(t *testing.T) {
 			return &core.PropagatedResult{
 				TaskID: task.TaskID,
 				NodeID: peer.id,
-				Output: fmt.Sprintf("processed by %s", peer.id),
+				Output: "processed by " + peer.id,
 			}
 		})
 	}

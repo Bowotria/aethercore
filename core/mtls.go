@@ -39,7 +39,7 @@ type NodeIdentity struct {
 
 // certDir returns the filesystem path where certs are stored.
 // On Linux/macOS: ~/.aether/certs/
-// On Windows:     %APPDATA%\aether\certs\
+// On Windows:     %APPDATA%\aether\certs\.
 func certDir() (string, error) {
 	base, err := os.UserConfigDir()
 	if err != nil {
@@ -68,14 +68,14 @@ func LoadOrCreateIdentity(nodeID string) (*NodeIdentity, error) {
 
 	// If any file is missing, regenerate everything from scratch.
 	for _, p := range []string{caKeyPath, caCertPath, leafKeyPath, leafCertPath} {
-		if _, err := os.Stat(p); os.IsNotExist(err) {
+		if _, statErr := os.Stat(p); os.IsNotExist(statErr) {
 			WithComponent("mtls").Info("cert_store_missing_regenerating", "path", p)
 			return generateAndSave(nodeID, dir, caKeyPath, caCertPath, leafKeyPath, leafCertPath)
 		}
 	}
 
 	// Load existing CA cert to check expiry.
-	caCertPEM, err := os.ReadFile(caCertPath)
+	caCertPEM, err := os.ReadFile(caCertPath) //nolint:gosec // path is constructed from UserConfigDir + hardcoded suffix
 	if err != nil {
 		return nil, fmt.Errorf("mtls: read ca cert: %w", err)
 	}
@@ -101,10 +101,10 @@ func LoadOrCreateIdentity(nodeID string) (*NodeIdentity, error) {
 	// Build certificate pool trusting ONLY our own CA.
 	pool := x509.NewCertPool()
 	if !pool.AppendCertsFromPEM(caCertPEM) {
-		return nil, fmt.Errorf("mtls: failed to append CA cert to pool")
+		return nil, errors.New("mtls: failed to append CA cert to pool")
 	}
 
-	tlsCfg := buildTLSConfig(tlsCert, pool)
+	tlsCfg := buildTLSConfig(&tlsCert, pool)
 
 	WithComponent("mtls").Info("identity_loaded", "node_id", nodeID, "ca_expires", caCert.NotAfter.Format(time.RFC3339))
 
@@ -182,13 +182,13 @@ func generateAndSave(nodeID, dir, caKeyPath, caCertPath, leafKeyPath, leafCertPa
 	}
 
 	for path, data := range map[string][]byte{
-		caKeyPath:   caKeyPEM,
-		caCertPath:  caCertPEM,
+		caKeyPath:    caKeyPEM,
+		caCertPath:   caCertPEM,
 		leafKeyPath:  leafKeyPEM,
 		leafCertPath: leafCertPEM,
 	} {
-		if err := os.WriteFile(path, data, 0o600); err != nil {
-			return nil, fmt.Errorf("mtls: write %s: %w", path, err)
+		if writeErr := os.WriteFile(path, data, 0o600); writeErr != nil {
+			return nil, fmt.Errorf("mtls: write %s: %w", path, writeErr)
 		}
 	}
 
@@ -210,14 +210,14 @@ func generateAndSave(nodeID, dir, caKeyPath, caCertPath, leafKeyPath, leafCertPa
 	return &NodeIdentity{
 		CACert:    caCert,
 		CACertPEM: caCertPEM,
-		TLSConfig: buildTLSConfig(tlsCert, pool),
+		TLSConfig: buildTLSConfig(&tlsCert, pool),
 	}, nil
 }
 
 // buildTLSConfig constructs a strict TLS 1.3-only config for mTLS mesh comms.
-func buildTLSConfig(cert tls.Certificate, pool *x509.CertPool) *tls.Config {
+func buildTLSConfig(cert *tls.Certificate, pool *x509.CertPool) *tls.Config {
 	return &tls.Config{
-		Certificates: []tls.Certificate{cert},
+		Certificates: []tls.Certificate{*cert},
 		ClientCAs:    pool,
 		RootCAs:      pool,
 		ClientAuth:   tls.RequireAndVerifyClientCert,

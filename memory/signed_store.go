@@ -17,10 +17,10 @@ import (
 
 // Sentinel errors for token validation failures.
 var (
-	ErrTokenExpired   = errors.New("signed memory: query token has expired")
-	ErrTokenInvalid   = errors.New("signed memory: query token signature invalid")
-	ErrUnknownNode    = errors.New("signed memory: signer node not in trusted CA pool")
-	ErrBadKey         = errors.New("signed memory: certificate key is not ECDSA")
+	ErrTokenExpired = errors.New("signed memory: query token has expired")
+	ErrTokenInvalid = errors.New("signed memory: query token signature invalid")
+	ErrUnknownNode  = errors.New("signed memory: signer node not in trusted CA pool")
+	ErrBadKey       = errors.New("signed memory: certificate key is not ECDSA")
 )
 
 // tokenTTL is the maximum age of a valid QueryToken.
@@ -41,8 +41,8 @@ type QueryToken struct {
 // SignedQueryRequest packages a token with a serialised certificate for
 // peer verification over the network.
 type SignedQueryRequest struct {
-	Token    *QueryToken `json:"token"`
-	CertDER  []byte      `json:"cert_der"` // leaf DER certificate for signature verification
+	Token   *QueryToken `json:"token"`
+	CertDER []byte      `json:"cert_der"` // leaf DER certificate for signature verification
 }
 
 // SignedQueryResponse is the response to a SignedQueryRequest.
@@ -55,8 +55,8 @@ type SignedQueryResponse struct {
 // control: callers must present a valid QueryToken signed by a trusted peer
 // before their query is executed.
 type SignedMemoryStore struct {
-	store   *VectorStore
-	caPool  *x509.CertPool // trusts the mesh CA; populated from NodeIdentity
+	store  *VectorStore
+	caPool *x509.CertPool // trusts the mesh CA; populated from NodeIdentity
 }
 
 // NewSignedMemoryStore creates a signed store backed by the given VectorStore.
@@ -87,7 +87,7 @@ func (s *SignedMemoryStore) AuthorisedQuery(req *SignedQueryRequest) ([]MemoryRe
 	// 3. Verify the peer certificate is signed by the trusted CA.
 	opts := x509.VerifyOptions{Roots: s.caPool, KeyUsages: []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth}}
 	if _, err := cert.Verify(opts); err != nil {
-		return nil, fmt.Errorf("%w: %s", ErrUnknownNode, err)
+		return nil, fmt.Errorf("%w: %w", ErrUnknownNode, err)
 	}
 
 	// 4. Extract the ECDSA public key from the certificate.
@@ -111,7 +111,7 @@ func (s *SignedMemoryStore) AuthorisedQuery(req *SignedQueryRequest) ([]MemoryRe
 // in a SignedQueryRequest.
 func SignQuery(tlsCfg *tls.Config, embedding []float32, topK int, nodeID string) (*QueryToken, []byte, error) {
 	if len(tlsCfg.Certificates) == 0 {
-		return nil, nil, fmt.Errorf("signed memory: no certificate in TLS config")
+		return nil, nil, errors.New("signed memory: no certificate in TLS config")
 	}
 	cert := tlsCfg.Certificates[0]
 
@@ -140,7 +140,7 @@ func SignQuery(tlsCfg *tls.Config, embedding []float32, topK int, nodeID string)
 }
 
 // tokenDigest computes the canonical SHA-256 hash that is signed/verified.
-// Format: sha256(node_id_len || node_id || issued_at_be64 || top_k_be64 || embedding_f32s)
+// Format: sha256(node_id_len || node_id || issued_at_be64 || top_k_be64 || embedding_f32s).
 func tokenDigest(t *QueryToken) [32]byte {
 	h := sha256.New()
 	idBytes := []byte(t.NodeID)
@@ -148,9 +148,9 @@ func tokenDigest(t *QueryToken) [32]byte {
 	binary.BigEndian.PutUint64(lenBuf[:], uint64(len(idBytes)))
 	h.Write(lenBuf[:])
 	h.Write(idBytes)
-	binary.BigEndian.PutUint64(lenBuf[:], uint64(t.IssuedAt))
+	binary.BigEndian.PutUint64(lenBuf[:], uint64(t.IssuedAt)) //nolint:gosec // IssuedAt is a unix nanosecond timestamp; negative values are impossible in practice
 	h.Write(lenBuf[:])
-	binary.BigEndian.PutUint64(lenBuf[:], uint64(t.TopK))
+	binary.BigEndian.PutUint64(lenBuf[:], uint64(t.TopK)) //nolint:gosec // TopK is a small positive int; overflow is impossible in practice
 	h.Write(lenBuf[:])
 	buf := make([]byte, 4*len(t.Embedding))
 	for i, v := range t.Embedding {
@@ -166,7 +166,7 @@ func tokenDigest(t *QueryToken) [32]byte {
 // Clients must send a SignedQueryRequest (JSON); the server responds with a
 // SignedQueryResponse (JSON).  The mTLS layer provides transport security and
 // the query token provides data-layer access control.
-type MemoryServer struct {
+type MemoryServer struct { //nolint:revive // MemoryServer is intentionally explicit to distinguish from other Server types in the package
 	store    *SignedMemoryStore
 	tlsCfg   *tls.Config
 	listener net.Listener
@@ -219,7 +219,7 @@ func (ms *MemoryServer) handle(conn net.Conn) {
 
 	var req SignedQueryRequest
 	if err := json.NewDecoder(conn).Decode(&req); err != nil {
-		_ = json.NewEncoder(conn).Encode(SignedQueryResponse{Error: "decode: " + err.Error()})
+		_ = json.NewEncoder(conn).Encode(SignedQueryResponse{Error: "decode: " + err.Error()}) //nolint:errchkjson // best-effort error response; connection is closing
 		return
 	}
 
@@ -228,5 +228,5 @@ func (ms *MemoryServer) handle(conn net.Conn) {
 	if err != nil {
 		resp.Error = err.Error()
 	}
-	_ = json.NewEncoder(conn).Encode(resp)
+	_ = json.NewEncoder(conn).Encode(resp) //nolint:errchkjson // best-effort response write; float32 scores are always finite
 }

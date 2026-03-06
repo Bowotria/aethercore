@@ -86,14 +86,15 @@ func TestMeshDiscovery_SelfBeaconsIgnored(t *testing.T) {
 		GRPCAddr: "localhost:9002",
 		Version:  "0.1.0",
 	}
-	data, _ := json.Marshal(selfBeacon)
+	data, err := json.Marshal(selfBeacon)
+	if err != nil {
+		t.Fatalf("marshal selfBeacon: %v", err)
+	}
 
 	// Directly test the unmarshalling logic: if NodeID == self, skip.
 	var parsed PeerBeacon
 	_ = json.Unmarshal(data, &parsed)
-	if parsed.NodeID == m.beacon.NodeID {
-		// should be skipped — verify peers stays empty
-	}
+	// upsertPeer filters self-beacons; peers map must stay empty.
 	_ = log
 
 	if len(m.Peers()) != 0 {

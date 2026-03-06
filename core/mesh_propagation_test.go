@@ -2,7 +2,6 @@ package core
 
 import (
 	"context"
-	"fmt"
 	"net"
 	"testing"
 	"time"
@@ -70,6 +69,18 @@ func TestPropagatedTask_SerializedCorrectly(t *testing.T) {
 	if task.TaskID != "task-42" {
 		t.Error("TaskID mismatch")
 	}
+	if task.SourceID != "node-A" {
+		t.Errorf("expected SourceID 'node-A', got '%s'", task.SourceID)
+	}
+	if task.Prompt != "Summarise the document." {
+		t.Errorf("expected Prompt set, got '%s'", task.Prompt)
+	}
+	if task.Model != "llama3" {
+		t.Errorf("expected Model 'llama3', got '%s'", task.Model)
+	}
+	if task.Timestamp != 1234567890 {
+		t.Errorf("expected Timestamp 1234567890, got %d", task.Timestamp)
+	}
 	if len(task.Tools) != 2 {
 		t.Errorf("expected 2 tools, got %d", len(task.Tools))
 	}
@@ -97,7 +108,7 @@ func TestMeshPropagator_ListenAndPropagate(t *testing.T) {
 		return &PropagatedResult{
 			TaskID: task.TaskID,
 			NodeID: "proptest-loopback",
-			Output: fmt.Sprintf("echo:%s", task.Prompt),
+			Output: "echo:" + task.Prompt,
 		}
 	})
 
