@@ -234,6 +234,20 @@ func encodeECKey(key *ecdsa.PrivateKey) ([]byte, error) {
 	return pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: der}), nil
 }
 
+// newTLSListener wraps a plain TCP listener in a TLS server acceptor.
+// The provided cfg must have Certificates and ClientCAs set (server-side mTLS).
+func newTLSListener(inner net.Listener, cfg *tls.Config) net.Listener {
+	return tls.NewListener(inner, cfg)
+}
+
+// newTLSClientConn wraps a raw TCP connection in a TLS client handshake.
+// serverName is used for SNI; it must match a SAN in the server's leaf cert.
+func newTLSClientConn(conn net.Conn, cfg *tls.Config, serverName string) *tls.Conn {
+	c := cfg.Clone()
+	c.ServerName = serverName
+	return tls.Client(conn, c)
+}
+
 // newSerial generates a cryptographically random certificate serial number.
 func newSerial() *big.Int {
 	serial, err := rand.Int(rand.Reader, new(big.Int).Lsh(big.NewInt(1), 128))
