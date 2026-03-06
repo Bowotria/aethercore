@@ -48,7 +48,7 @@ type Engine struct {
 }
 
 // NewEngine initializes the core event loop with bounded goroutines.
-func NewEngine(adapter LLMAdapter, workerCount int, queueSize int) *Engine {
+func NewEngine(adapter LLMAdapter, workerCount, queueSize int) *Engine {
 	e := &Engine{
 		adapter:     adapter,
 		tools:       NewToolRegistry(),
@@ -104,12 +104,20 @@ func (e *Engine) Stop() {
 
 // GetTask retrieves a zero-allocated Task from the sync pool.
 func (e *Engine) GetTask() *Task {
-	return e.taskPool.Get().(*Task)
+	t, ok := e.taskPool.Get().(*Task)
+	if !ok {
+		return &Task{}
+	}
+	return t
 }
 
 // GetResult retrieves a zero-allocated Result from the sync pool.
 func (e *Engine) GetResult() *Result {
-	return e.resultPool.Get().(*Result)
+	r, ok := e.resultPool.Get().(*Result)
+	if !ok {
+		return &Result{}
+	}
+	return r
 }
 
 // Submit enqueues a task. Returns ErrQueueFull if the bounded queue is saturated.
