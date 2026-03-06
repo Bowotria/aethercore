@@ -34,16 +34,17 @@ type Result struct {
 
 // Engine coordinates the worker pool and ephemeral execution lifecycle.
 type Engine struct {
-	adapter     LLMAdapter
-	tools       *ToolRegistry
-	taskQueue   chan *Task
-	resultQueue chan *Result
-	workerCount int
-	wg          sync.WaitGroup
-	quit        chan struct{}
-	stopOnce    sync.Once
-	taskPool    sync.Pool
-	resultPool  sync.Pool
+	adapter       LLMAdapter
+	tools         *ToolRegistry
+	sandboxClient *SandboxClient // optional: Layer 2 Rust Sandbox for unknown tools
+	taskQueue     chan *Task
+	resultQueue   chan *Result
+	workerCount   int
+	wg            sync.WaitGroup
+	quit          chan struct{}
+	stopOnce      sync.Once
+	taskPool      sync.Pool
+	resultPool    sync.Pool
 }
 
 // NewEngine initializes the core event loop with bounded goroutines.
@@ -62,6 +63,14 @@ func NewEngine(adapter LLMAdapter, workerCount int, queueSize int) *Engine {
 	e.resultPool.New = func() interface{} {
 		return &Result{}
 	}
+	return e
+}
+
+// WithSandbox attaches a Layer 2 Rust Sandbox client to this Engine.
+// After this call, any tool call whose name is absent from the local registry
+// is automatically forwarded to the verified Rust sidecar for execution.
+func (e *Engine) WithSandbox(client *SandboxClient) *Engine {
+	e.sandboxClient = client
 	return e
 }
 
@@ -188,13 +197,39 @@ func (e *Engine) executeEphemeral(t *Task) (string, error) {
 		return resp.Content, nil
 	}
 
-	// 3. Process Deterministic Tool Calls
-	// In Layer 0, we only handle in-process capability execution directly.
-	// Untrusted calls will be delegated to the Layer 2 Rust Sandbox via RPC later.
+	// 3. Process Deterministic Tool Calls.
+	// Known tools run in-process (Layer 0). Unknown tools are dispatched to the
+	// verified Layer 2 Rust Sandbox — the security boundary lives here.
 	for _, call := range resp.ToolCalls {
 		tool, err := e.tools.Get(call.Name)
 		if err != nil {
-			WithComponent("tool_orchestrator").Warn("tool_not_found_in_registry", slog.String("tool_name", call.Name))
+			// Tool is not registered in the local Layer 0 registry.
+			// Forward to the Layer 2 Rust Sandbox for capability-gated execution.
+			if e.sandboxClient != nil {
+				sbLog := WithComponent("sandbox_dispatcher").With(slog.String("tool_name", call.Name))
+				sbLog.Info("unknown_tool_dispatched_to_sandbox")
+
+				sbStart := time.Now()
+				output, sbErr := e.sandboxClient.ExecuteTool(ctx, call.Name, call.Arguments)
+				sbDuration := time.Since(sbStart)
+
+				if sbErr != nil {
+					sbLog.Error("sandbox_execution_failed",
+						slog.String("error", sbErr.Error()),
+						slog.Duration("duration_ms", sbDuration),
+					)
+				} else {
+					sbLog.Info("sandbox_execution_completed",
+						slog.Duration("duration_ms", sbDuration),
+						slog.String("output", output),
+					)
+				}
+			} else {
+				WithComponent("tool_orchestrator").Warn("tool_not_found_in_registry",
+					slog.String("tool_name", call.Name),
+					slog.String("hint", "attach a sandbox client via WithSandbox() to enable remote dispatch"),
+				)
+			}
 			continue
 		}
 
