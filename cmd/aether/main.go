@@ -40,22 +40,8 @@ func main() {
 		flag.PrintDefaults()
 	}
 
-	// Parse global flags
 	flag.Parse()
-
-	// Initialize structured logger
-	var level slog.Level
-	switch strings.ToLower(*logLevelStr) {
-	case "debug":
-		level = slog.LevelDebug
-	case "warn":
-		level = slog.LevelWarn
-	case "error":
-		level = slog.LevelError
-	default:
-		level = slog.LevelInfo
-	}
-	core.InitLogger(level)
+	core.InitLogger(parseLogLevel(*logLevelStr))
 	core.Logger().Debug("aethercore_boot_sequence_started")
 
 	args := flag.Args()
@@ -64,9 +50,28 @@ func main() {
 		return
 	}
 
-	command := args[0]
+	dispatch(args, *kernelMode)
+}
 
-	switch command {
+// parseLogLevel converts a string log level flag into the slog constant.
+// Extracted to keep main() below the cyclomatic-complexity limit (cyclop).
+func parseLogLevel(s string) slog.Level {
+	switch strings.ToLower(s) {
+	case "debug":
+		return slog.LevelDebug
+	case "warn":
+		return slog.LevelWarn
+	case "error":
+		return slog.LevelError
+	default:
+		return slog.LevelInfo
+	}
+}
+
+// dispatch routes a parsed CLI command to the correct handler.
+// Extracted to keep main() below the cyclomatic-complexity limit (cyclop).
+func dispatch(args []string, kernelMode bool) {
+	switch args[0] {
 	case "onboard":
 		authCmd("signup")
 	case "login":
@@ -84,30 +89,36 @@ func main() {
 			fmt.Println("Usage: aether tool list")
 		}
 	case "run":
-		runCmd := flag.NewFlagSet("run", flag.ContinueOnError)
-		goal := runCmd.String("goal", "", "The goal for the ephemeral agent to accomplish")
-		targetTool := runCmd.String("tool", "", "Bypass LLM and execute a specific native tool directly")
-		toolArgs := runCmd.String("args", "{}", "JSON arguments to pass to the target tool")
-
-		if err := runCmd.Parse(args[1:]); err != nil {
-			core.Logger().Error("failed_to_parse_run_flags", slog.String("error", err.Error()))
-			os.Exit(1) //nolint:gocritic // exitAfterDefer: deferred telemetry is for clean exits, parse failures abort immediately
-		}
-
-		if *targetTool != "" {
-			runToolNative(*targetTool, *toolArgs)
-			return
-		}
-		if *goal == "" {
-			fmt.Println("Error: --goal is required for 'run' if not specifying a --tool")
-			os.Exit(1)
-		}
-		runPicoMode(*goal, *kernelMode)
+		handleRunCmd(args[1:], kernelMode)
 	default:
-		fmt.Printf("Unknown command: %s\n", command)
+		fmt.Printf("Unknown command: %s\n", args[0])
 		flag.Usage()
 		os.Exit(1)
 	}
+}
+
+// handleRunCmd parses the 'aether run' sub-flags and invokes the right executor.
+// Extracted to keep dispatch() below the cyclomatic-complexity limit (cyclop).
+func handleRunCmd(args []string, kernelMode bool) {
+	runCmd := flag.NewFlagSet("run", flag.ContinueOnError)
+	goal := runCmd.String("goal", "", "The goal for the ephemeral agent to accomplish")
+	targetTool := runCmd.String("tool", "", "Bypass LLM and execute a specific native tool directly")
+	toolArgs := runCmd.String("args", "{}", "JSON arguments to pass to the target tool")
+
+	if err := runCmd.Parse(args); err != nil {
+		core.Logger().Error("failed_to_parse_run_flags", slog.String("error", err.Error()))
+		os.Exit(1) //nolint:gocritic // exitAfterDefer: deferred telemetry is for clean exits, parse failures abort immediately
+	}
+
+	if *targetTool != "" {
+		runToolNative(*targetTool, *toolArgs)
+		return
+	}
+	if *goal == "" {
+		fmt.Println("Error: --goal is required for 'run' if not specifying a --tool")
+		os.Exit(1)
+	}
+	runPicoMode(*goal, kernelMode)
 }
 
 func runPicoMode(goal string, isKernel bool) {
