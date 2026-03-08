@@ -6,7 +6,6 @@ import (
 	"sync"
 )
 
-
 // Sentinel errors for the ModuleRegistry.
 var (
 	ErrNilModule           = errors.New("sdk: cannot register nil module")

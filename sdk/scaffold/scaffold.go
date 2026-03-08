@@ -117,7 +117,7 @@ func validateConfig(cfg Config) error {
 func checkOutputDir(dir string) error {
 	info, err := os.Stat(dir)
 	if errors.Is(err, os.ErrNotExist) {
-		return os.MkdirAll(dir, 0o750) //nolint:gosec // G301: 0750 grants owner+group; world has no access
+		return os.MkdirAll(dir, 0o750)
 	}
 	if err != nil {
 		return fmt.Errorf("scaffold: stat %q: %w", dir, err)
@@ -158,7 +158,7 @@ func renderTemplate(src, dst string, data *templateData) error {
 		return fmt.Errorf("scaffold: parse template %q: %w", src, err)
 	}
 
-	f, err := os.Create(dst) //nolint:gosec // G304: dst is filepath.Join(validatedOutputDir, knownTemplateName)
+	f, err := os.Create(dst) // #nosec G304 -- dst is filepath.Join(validatedOutputDir, embed.FS entry name)
 	if err != nil {
 		return fmt.Errorf("scaffold: create %q: %w", dst, err)
 	}
