@@ -1,0 +1,52 @@
+# {{.ModuleName}}
+
+> An [AetherCore](https://github.com/fzihak/aethercore) Layer 1 Module.
+
+Generated with `aether scaffold --name {{.ModuleName}} --author "{{.Author}}"`.
+
+## Getting Started
+
+```bash
+go build ./...
+go test ./...
+```
+
+## Usage
+
+Register the module with the kernel during startup:
+
+```go
+import (
+    "context"
+
+    "github.com/fzihak/aethercore/sdk"
+    mod "github.com/YOUR_USERNAME/{{.ModuleName}}"
+)
+
+func main() {
+    registry := sdk.NewModuleRegistry()
+    mc := sdk.NewModuleContext("{{.ModuleName}}")
+
+    if err := sdk.StartModule(context.Background(), registry, mod.New(), mc); err != nil {
+        panic(err)
+    }
+    // ... run your application
+    _ = sdk.StopAll(context.Background(), registry)
+}
+```
+
+## Capabilities
+
+This module currently requests **no** kernel capabilities.
+Add entries to the `Capabilities` field in `Manifest()` as needed:
+
+| Constant            | Permission                         |
+|---------------------|------------------------------------|
+| `sdk.CapNetwork`    | Outbound TCP/UDP connections       |
+| `sdk.CapFilesystem` | Read/write access to the local FS  |
+| `sdk.CapState`      | Persistent state via the kernel DB |
+| `sdk.CapMesh`       | Participation in the agent mesh    |
+
+## License
+
+Apache-2.0 — see [LICENSE](LICENSE).
