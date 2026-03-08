@@ -1,0 +1,19 @@
+[package]
+name = "aether-sdk"
+version = "0.1.0"
+edition = "2021"
+description = "AetherCore Layer 1 Module SDK for Rust — implement the AetherModule trait to build sandboxed Rust modules for the AetherCore kernel."
+license = "Apache-2.0"
+repository = "https://github.com/fzihak/aethercore"
+keywords = ["aethercore", "agent", "module", "sdk", "wasm"]
+categories = ["api-bindings", "wasm"]
+
+[dependencies]
+# Serialization for manifest and task types (JSON wire format with the kernel)
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+# Ergonomic async fn in traits for object-safe trait objects
+async-trait = "0.1"
+
+[dev-dependencies]
+tokio = { version = "1.0", features = ["rt", "macros"] }
