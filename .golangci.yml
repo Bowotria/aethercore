@@ -30,6 +30,7 @@ linters:
     - usetesting    # t.Context() isn't universally available across Go versions
     - tenv          # Deprecated since v1.64.0; replaced by usetesting
     - gci           # Requires module-name section config; standard grouping already applied manually
+    - nonamedreturns  # Conflicts with gocritic/unnamedResult: two same-type returns must be named
 
 linters-settings:
   gocognit:

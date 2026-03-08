@@ -78,14 +78,14 @@ func (r *Router) Handle(ctx context.Context, upd Update) {
 //	"/run hello world"   → ("run", "hello world")
 //	"/help@MyBot"        → ("help", "")
 //	"just text"          → ("", "just text")
-func parseCommand(text string) (string, string) {
+func parseCommand(text string) (cmd, args string) {
 	if !strings.HasPrefix(text, "/") {
 		return "", text
 	}
 
 	// Strip leading slash and split on first whitespace.
 	rest := text[1:]
-	var name, args string
+	var name string
 	if idx := strings.IndexByte(rest, ' '); idx >= 0 {
 		name = rest[:idx]
 		args = strings.TrimSpace(rest[idx+1:])
