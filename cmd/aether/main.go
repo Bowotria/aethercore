@@ -36,7 +36,8 @@ func main() {
 		fmt.Fprintf(os.Stderr, "  aether login                Re-authenticate if the token expired\n")
 		fmt.Fprintf(os.Stderr, "  aether account delete       Delete your account from the Auth Cloud\n")
 		fmt.Fprintf(os.Stderr, "  aether run --goal '...'     Execute a task using an ephemeral agent\n")
-		fmt.Fprintf(os.Stderr, "  aether scaffold --name '...' Generate a Layer 1 Module scaffold\n\n")
+		fmt.Fprintf(os.Stderr, "  aether scaffold --name '...' Generate a Layer 1 Module scaffold\n")
+		fmt.Fprintf(os.Stderr, "  aether telegram --token '...' Start the Telegram gateway bot\n\n")
 		fmt.Fprintf(os.Stderr, "Flags:\n")
 		flag.PrintDefaults()
 	}
@@ -93,6 +94,8 @@ func dispatch(args []string, kernelMode bool) {
 		handleRunCmd(args[1:], kernelMode)
 	case "scaffold":
 		handleScaffoldCmd(args[1:])
+	case "telegram":
+		handleTelegramCmd(args[1:])
 	default:
 		fmt.Printf("Unknown command: %s\n", args[0])
 		flag.Usage()
