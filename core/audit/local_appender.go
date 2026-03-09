@@ -1,8 +1,13 @@
 package audit
 
-import "os"
+import (
+	"encoding/json"
+	"os"
+	"sync"
+)
 
 type LocalAppender struct {
+	mu       sync.Mutex
 	filePath string
 	file     *os.File
 }
@@ -25,4 +30,17 @@ func (a *LocalAppender) Close() error {
 		return a.file.Close()
 	}
 	return nil
+}
+
+func (a *LocalAppender) AppendBlock(b Block) error {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
+	data, err := json.Marshal(b)
+	if err != nil {
+		return err
+	}
+	data = append(data, '\n')
+	_, err = a.file.Write(data)
+	return err
 }
