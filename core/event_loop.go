@@ -3,6 +3,7 @@ package core
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"sync"
 	"time"
@@ -186,6 +187,8 @@ func (e *Engine) worker(id int) {
 	}
 }
 
+const maxAgentIterations = 10
+
 // executeEphemeral is the core orchestration loop for a single task.
 // No state leaks outside this function.
 func (e *Engine) executeEphemeral(t *Task) (string, error) {
@@ -193,72 +196,100 @@ func (e *Engine) executeEphemeral(t *Task) (string, error) {
 	defer cancel()
 
 	manifests := e.tools.Manifests()
-
-	// 1. Send prompt to LLM
-	resp, err := e.adapter.GenerateWithTools(ctx, t.System, t.Input, manifests)
-	if err != nil {
-		return "", err
+	messages := []Message{
+		{Role: "system", Content: t.System},
+		{Role: "user", Content: t.Input},
 	}
 
-	// 2. If no tool calls, return purely text response
-	if len(resp.ToolCalls) == 0 {
-		return resp.Content, nil
-	}
-
-	// 3. Process Deterministic Tool Calls.
-	// Known tools run in-process (Layer 0). Unknown tools are dispatched to the
-	// verified Layer 2 Rust Sandbox — the security boundary lives here.
-	for _, call := range resp.ToolCalls {
-		tool, err := e.tools.Get(call.Name)
+	for iteration := range maxAgentIterations {
+		resp, err := e.adapter.GenerateWithTools(ctx, messages, manifests)
 		if err != nil {
-			// Tool is not registered in the local Layer 0 registry.
-			// Forward to the Layer 2 Rust Sandbox for capability-gated execution.
-			if e.sandboxClient != nil {
-				sbLog := WithComponent("sandbox_dispatcher").With(slog.String("tool_name", call.Name))
-				sbLog.Info("unknown_tool_dispatched_to_sandbox")
-
-				sbStart := time.Now()
-				output, sbErr := e.sandboxClient.ExecuteTool(ctx, call.Name, call.Arguments)
-				sbDuration := time.Since(sbStart)
-
-				if sbErr != nil {
-					sbLog.Error("sandbox_execution_failed",
-						slog.String("error", sbErr.Error()),
-						slog.Duration("duration_ms", sbDuration),
-					)
-				} else {
-					sbLog.Info("sandbox_execution_completed",
-						slog.Duration("duration_ms", sbDuration),
-						slog.String("output", output),
-					)
-				}
-			} else {
-				WithComponent("tool_orchestrator").Warn("tool_not_found_in_registry",
-					slog.String("tool_name", call.Name),
-					slog.String("hint", "attach a sandbox client via WithSandbox() to enable remote dispatch"),
-				)
-			}
-			continue
+			return "", fmt.Errorf("llm_iter_%d: %w", iteration, err)
 		}
 
-		// capability enforcement will wrap `Execute` here
+		// LLM decided it's done — no more tool calls
+		if len(resp.ToolCalls) == 0 {
+			return resp.Content, nil
+		}
+
+		// Append assistant turn to history
+		messages = append(messages, Message{
+			Role:      "assistant",
+			Content:   resp.Content,
+			ToolCalls: resp.ToolCalls,
+		})
+
+		// Execute tools, feed results back
+		var toolResults []ToolResultMessage
+		for _, call := range resp.ToolCalls {
+			result, execErr := e.dispatchTool(ctx, call)
+
+			// TODO: Phase 1 Prompt injection scan on tool output BEFORE giving to LLM
+			// scanResult := e.guard.ScanToolOutput(ctx, call.Name, result)
+			// if scanResult.Action == Block { ... }
+
+			toolResults = append(toolResults, ToolResultMessage{
+				ToolCallID: call.ID,
+				Content:    result,
+				IsError:    execErr != nil,
+			})
+		}
+
+		messages = append(messages, Message{
+			Role:        "tool",
+			ToolResults: toolResults,
+		})
+	}
+
+	return "", errors.New("ErrMaxIterationsExceeded")
+}
+
+// dispatchTool dynamically resolves execution to Layer 0 (internal) or Layer 2 (sandbox).
+func (e *Engine) dispatchTool(ctx context.Context, call ToolCall) (string, error) {
+	tool, err := e.tools.Get(call.Name)
+	if err == nil {
 		toolLog := WithComponent("tool_executor").With(slog.String("tool_name", call.Name))
 		toolLog.Debug("tool_execution_started", slog.String("arguments", call.Arguments))
-
 		toolStart := time.Now()
-		_, err = tool.Execute(ctx, call.Arguments)
+
+		res, execErr := tool.Execute(ctx, call.Arguments)
 		toolDuration := time.Since(toolStart)
 
-		if err != nil {
-			toolLog.Error("tool_execution_failed", slog.String("error", err.Error()), slog.Duration("duration_ms", toolDuration))
-			continue
+		if execErr != nil {
+			toolLog.Error("tool_execution_failed", slog.String("error", execErr.Error()), slog.Duration("duration_ms", toolDuration))
+			return "", execErr
 		}
-
 		toolLog.Info("tool_execution_completed", slog.Duration("duration_ms", toolDuration))
-
-		// Note: A real LLM loop would feed the result back to the LLM here.
-		// For Layer 0 scaffolding, we just execute sequentially.
+		return string(res), nil
 	}
 
-	return resp.Content, nil
+	// Unknown tool — forward to Rust sandbox
+	if e.sandboxClient != nil {
+		sbLog := WithComponent("sandbox_dispatcher").With(slog.String("tool_name", call.Name))
+		sbLog.Info("unknown_tool_dispatched_to_sandbox")
+
+		sbStart := time.Now()
+		output, sbErr := e.sandboxClient.ExecuteTool(ctx, call.Name, call.Arguments)
+		sbDuration := time.Since(sbStart)
+
+		if sbErr != nil {
+			sbLog.Error("sandbox_execution_failed",
+				slog.String("error", sbErr.Error()),
+				slog.Duration("duration_ms", sbDuration),
+			)
+			return "", sbErr
+		}
+
+		sbLog.Info("sandbox_execution_completed",
+			slog.Duration("duration_ms", sbDuration),
+			slog.String("output", output),
+		)
+		return output, nil
+	}
+
+	WithComponent("tool_orchestrator").Warn("tool_not_found_in_registry",
+		slog.String("tool_name", call.Name),
+		slog.String("hint", "attach a sandbox client via WithSandbox() to enable remote dispatch"),
+	)
+	return "", fmt.Errorf("tool %q not found and no sandbox attached", call.Name)
 }
