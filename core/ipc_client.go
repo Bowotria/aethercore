@@ -48,7 +48,11 @@ func (c *SandboxClient) Close() error {
 }
 
 // ExecuteTool forwards a tool execution request to the Rust sandbox.
-func (c *SandboxClient) ExecuteTool(ctx context.Context, toolName, payloadJSON string) (string, error) {
+func (c *SandboxClient) ExecuteTool(ctx context.Context, toolName, payloadJSON, signatureHex string) (string, error) {
+	if signatureHex == "" {
+		return "", fmt.Errorf("refusing to dispatch unsigned tool via IPC")
+	}
+
 	req := &ipc.ToolRequest{
 		ToolName:    toolName,
 		PayloadJson: payloadJSON,

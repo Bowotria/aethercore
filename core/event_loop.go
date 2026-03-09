@@ -293,7 +293,7 @@ func (e *Engine) dispatchTool(ctx context.Context, call ToolCall) (string, error
 		sbLog.Info("unknown_tool_dispatched_to_sandbox")
 
 		sbStart := time.Now()
-		output, sbErr := e.sandboxClient.ExecuteTool(ctx, call.Name, call.Arguments)
+		output, sbErr := e.sandboxClient.ExecuteTool(ctx, call.Name, call.Arguments, "")
 		sbDuration := time.Since(sbStart)
 
 		if sbErr != nil {
