@@ -54,8 +54,7 @@ impl Sandbox for SandboxService {
         })?;
 
         // 4. Execute inside WASM (currently without WASI for Day 10 stableness, assuming basic fuel)
-        let fuel_limit = tool.capabilities.max_cpu_ms * 10_000;
-        let output = self.wasm_engine.execute(&[], fuel_limit).unwrap_or_else(|e| {
+        let output = self.wasm_engine.execute(&[], &req.payload_json, &tool.capabilities).unwrap_or_else(|e| {
             format!(r#"{{"error": "{}"}}"#, e)
         });
 
@@ -69,7 +68,12 @@ impl Sandbox for SandboxService {
     }
 }
 
-pub async fn start_uds_server<P: AsRef<Path>>(path: P) -> Result<(), Box<dyn std::error::Error>> {
+pub async fn start_uds_server<P: AsRef<Path>>(
+    path: P,
+    manifest: Arc<Manifest>,
+    pubkey: PublicKey,
+    wasm_engine: Arc<WasmSandbox>,
+) -> Result<(), Box<dyn std::error::Error>> {
     let p = path.as_ref();
     if p.exists() {
         std::fs::remove_file(p)?;
@@ -78,7 +82,11 @@ pub async fn start_uds_server<P: AsRef<Path>>(path: P) -> Result<(), Box<dyn std
     let uds = UnixListener::bind(p)?;
     let stream = UnixListenerStream::new(tokio::net::UnixListener::from_std(uds)?);
 
-    let service = SandboxService::default();
+    let service = SandboxService {
+        manifest,
+        pubkey,
+        wasm_engine,
+    };
 
     println!(
         r#"{{"level":"INFO","msg":"sandbox_grpc_listening","socket":"{:?}"}}"#,
