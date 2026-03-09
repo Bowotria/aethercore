@@ -99,6 +99,8 @@ func dispatch(args []string, kernelMode bool) {
 		handleTelegramCmd(args[1:])
 	case "discord":
 		handleDiscordCmd(args[1:])
+	case "audit":
+		handleAuditCmd(args[1:])
 	default:
 		fmt.Printf("Unknown command: %s\n", args[0])
 		flag.Usage()
