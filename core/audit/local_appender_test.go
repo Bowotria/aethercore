@@ -3,6 +3,7 @@ package audit
 import (
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 )
 
@@ -20,6 +21,7 @@ func TestLocalAppender_FileCreationStrictPerms(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to open appender: %v", err)
 	}
+	defer appender.Close()
 
 	info, err := os.Stat(tmpFile)
 	if err != nil {
@@ -29,4 +31,24 @@ func TestLocalAppender_FileCreationStrictPerms(t *testing.T) {
 	if info.Mode().Perm() != 0600 {
 		t.Fatalf("expected strict 0600 permissions, got %v", info.Mode().Perm())
 	}
+}
+
+func TestLocalAppender_ConcurrentWriteSafety(t *testing.T) {
+	tmpFile := filepath.Join(t.TempDir(), "concurrent_audit.log")
+	appender := NewLocalAppender(tmpFile)
+	_ = appender.Open()
+	defer appender.Close()
+
+	var wg sync.WaitGroup
+	for i := 0; i < 100; i++ {
+		wg.Add(1)
+		go func(idx int) {
+			defer wg.Done()
+			err := appender.AppendBlock(Block{Index: uint64(idx)})
+			if err != nil {
+				t.Errorf("expected successful write")
+			}
+		}(i)
+	}
+	wg.Wait()
 }
