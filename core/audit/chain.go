@@ -34,3 +34,21 @@ func NewChainManager() *ChainManager {
 	c.blocks = []Block{genesis}
 	return c
 }
+
+// Append cryptographically links a new event to the end of the chain.
+func (c *ChainManager) Append(event AuditEvent) Block {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	prevBlock := c.blocks[len(c.blocks)-1]
+
+	newBlock := Block{
+		Index:        prevBlock.Index + 1,
+		Timestamp:    time.Now(),
+		Event:        event,
+		PreviousHash: prevBlock.Hash,
+	}
+	newBlock.Hash = c.calculateHash(newBlock)
+	c.blocks = append(c.blocks, newBlock)
+	return newBlock
+}
