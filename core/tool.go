@@ -75,7 +75,6 @@ func (r *ToolRegistry) Register(t Tool) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	m := t.Manifest()
 	if _, exists := r.tools[m.Name]; exists {
 		return fmt.Errorf("%w: %s", ErrToolRegistered, m.Name)
 	}
