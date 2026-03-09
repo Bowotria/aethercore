@@ -70,6 +70,14 @@ else
     echo "FAIL: Unverified tool executed"
 fi
 
+echo "--- Test 4.6: Immutable Audit Log Verification"
+RESULT=$($AETHER_BIN audit verify 2>&1) || true
+if echo "$RESULT" | grep -iq "SUCCESS"; then
+    echo "PASS: Cryptographic Audit Chain formally verified"
+else
+    echo "FAIL: Audit log manipulation detected"
+fi
+
 echo "--- Test 5: Memory Constraints"
 if command -v ps > /dev/null; then
     # Start a background task strictly to measure
