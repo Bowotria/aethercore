@@ -1,15 +1,10 @@
 package security
 
-import "testing"
-
-func TestManifestValidator_Verify(t *testing.T) {
-	kr := NewKeyRing()
-	validator := NewManifestValidator(kr)
-	ok, _ := validator.Verify([]byte("{}"), "abcd")
-	if !ok {
-		t.Errorf("Expected true for now")
-	}
-}
+import (
+	"crypto/ed25519"
+	"encoding/hex"
+	"testing"
+)
 
 func TestManifestValidator_MissingSignature(t *testing.T) {
 	kr := NewKeyRing()
@@ -51,5 +46,27 @@ func TestManifestValidator_SignatureMismatch(t *testing.T) {
 	ok, err := validator.Verify([]byte(`{"a":2}`), sig)
 	if ok || err == nil {
 		t.Errorf("Expected signature mismatch error")
+	}
+}
+
+func TestManifestValidator_ValidSignatureApproval(t *testing.T) {
+	pub, priv, err := ed25519.GenerateKey(nil)
+	if err != nil {
+		t.Fatalf("failed to generate key: %v", err)
+	}
+
+	kr := NewKeyRing()
+	kr.trustedKeys = append(kr.trustedKeys, pub)
+
+	validator := NewManifestValidator(kr)
+
+	msg := []byte(`{"a":2,"z":1}`)
+	canon, _ := validator.canonicalize(msg)
+	sigBytes := ed25519.Sign(priv, canon)
+	sigHex := hex.EncodeToString(sigBytes)
+
+	ok, err := validator.Verify(msg, sigHex)
+	if !ok || err != nil {
+		t.Errorf("Expected valid signature to be approved, got error: %v", err)
 	}
 }
