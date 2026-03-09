@@ -13,10 +13,10 @@ use tokio_stream::wrappers::UnixListenerStream;
 use crate::manifest::Manifest;
 use crate::sandbox::CgroupGuard;
 use crate::wasm_engine::WasmSandbox;
-use ed25519_dalek::PublicKey;
+use ed25519_dalek::VerifyingKey as PublicKey;
 use std::sync::Arc;
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct SandboxService {
     pub manifest: Arc<Manifest>,
     pub pubkey: PublicKey,
