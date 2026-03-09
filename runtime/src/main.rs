@@ -39,11 +39,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     // 4. Initialize the WASM execution engine (validates wasmtime config).
-    match wasm_engine::WasmSandbox::new() {
-        Ok(_) => {
+    let wasm_engine = match wasm_engine::WasmSandbox::new() {
+        Ok(engine) => {
             eprintln!(
                 r#"{{"level":"INFO","msg":"wasm_engine_ready","component":"sandbox"}}"#
             );
+            engine
         }
         Err(e) => {
             eprintln!(
@@ -52,7 +53,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             );
             std::process::exit(1);
         }
-    }
+    };
 
     // 5. Apply per-tool cgroup v2 memory limits from the manifest.
     //    Guards are kept alive for the full sandbox lifetime via RAII.
@@ -87,7 +88,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .build()?
         .block_on(async {
             let socket_path = std::env::temp_dir().join("aether-sandbox.sock");
-            ipc::start_uds_server(&socket_path).await
+            // Zeroed out for Layer 0 scaffolding; in production, this is rotated
+            let pubkey_bytes = [0u8; 32];
+            let pubkey = ed25519_dalek::VerifyingKey::from_bytes(&pubkey_bytes).unwrap();
+            ipc::start_uds_server(
+                &socket_path,
+                std::sync::Arc::new(manifest),
+                pubkey,
+                std::sync::Arc::new(wasm_engine),
+            ).await
         })?;
 
     Ok(())
