@@ -28,3 +28,20 @@ func TestChainManager_HashSerialization(t *testing.T) {
 		t.Fatalf("expected valid SHA-256 hex string")
 	}
 }
+
+func TestChainManager_AppendLinkage(t *testing.T) {
+	cm := NewChainManager()
+	event := AuditEvent{Type: "AUTH_LOGIN", Actor: "user1"}
+	cm.Append(event)
+
+	if len(cm.blocks) != 2 {
+		t.Fatalf("expected chain length 2")
+	}
+
+	b1 := cm.blocks[1]
+	b0 := cm.blocks[0]
+
+	if b1.PreviousHash != b0.Hash {
+		t.Fatalf("cryptographic broken link detected between blocks 0 and 1")
+	}
+}
