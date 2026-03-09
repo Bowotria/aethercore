@@ -1,14 +1,20 @@
 #![allow(dead_code)]
 
-use ed25519_dalek::{PublicKey, Signature, Verifier};
+use ed25519_dalek::{Signature, Verifier, VerifyingKey as PublicKey};
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, std::fmt::Display)]
+#[derive(Debug)]
 pub enum ManifestError {
     SerializationFailed,
     InvalidSignatureEncoding,
     InvalidSignature,
     SignatureVerificationFailed,
+}
+
+impl std::fmt::Display for ManifestError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self)
+    }
 }
 
 impl std::error::Error for ManifestError {}
@@ -87,8 +93,10 @@ impl ToolManifest {
         let sig_bytes = hex::decode(&self.signature)
             .map_err(|_| ManifestError::InvalidSignatureEncoding)?;
 
-        let signature = Signature::from_bytes(sig_bytes.as_slice().try_into().unwrap())
+        let sig_array: [u8; 64] = sig_bytes.as_slice().try_into()
             .map_err(|_| ManifestError::InvalidSignature)?;
+        
+        let signature = Signature::from_bytes(&sig_array);
 
         trusted_pubkey
             .verify(&payload, &signature)
