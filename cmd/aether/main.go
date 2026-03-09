@@ -113,11 +113,16 @@ func handleRunCmd(args []string, kernelMode bool) {
 	goal := runCmd.String("goal", "", "The goal for the ephemeral agent to accomplish")
 	targetTool := runCmd.String("tool", "", "Bypass LLM and execute a specific native tool directly")
 	toolArgs := runCmd.String("args", "{}", "JSON arguments to pass to the target tool")
+	workerCount := runCmd.Int("workers", 4, "Number of concurrent event loop workers")
+	sandboxPubkey := runCmd.String("pubkey", "", "Path to authorized Ed25519 public key manifest")
 
 	if err := runCmd.Parse(args); err != nil {
 		core.Logger().Error("failed_to_parse_run_flags", slog.String("error", err.Error()))
 		os.Exit(1)
 	}
+
+	_ = workerCount
+	_ = sandboxPubkey
 
 	if *targetTool != "" {
 		runToolNative(*targetTool, *toolArgs)
