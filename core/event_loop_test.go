@@ -228,10 +228,10 @@ func TestEngine_MaliciousToolOutputRejection(t *testing.T) {
 }
 
 type MockAuditLogger struct {
-	Events []audit.AuditEvent
+	Events []*audit.Event
 }
 
-func (m *MockAuditLogger) LogEvent(ctx context.Context, ev audit.AuditEvent) error {
+func (m *MockAuditLogger) LogEvent(ctx context.Context, ev *audit.Event) error {
 	m.Events = append(m.Events, ev)
 	return nil
 }

@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -50,7 +51,7 @@ func (c *SandboxClient) Close() error {
 // ExecuteTool forwards a tool execution request to the Rust sandbox.
 func (c *SandboxClient) ExecuteTool(ctx context.Context, toolName, payloadJSON, signatureHex string) (string, error) {
 	if signatureHex == "" {
-		return "", fmt.Errorf("refusing to dispatch unsigned tool via IPC")
+		return "", errors.New("refusing to dispatch unsigned tool via IPC")
 	}
 
 	req := &ipc.ToolRequest{

@@ -34,7 +34,7 @@ func (m *ManifestValidator) Verify(manifestJSON []byte, signatureHex string) (bo
 	if len(sigBytes) != ed25519.SignatureSize {
 		return false, errors.New("invalid signature length")
 	}
-	
+
 	canonicalMsg, err := m.canonicalize(manifestJSON)
 	if err != nil {
 		return false, err

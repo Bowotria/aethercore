@@ -26,7 +26,7 @@ func NewLocalAppender(path string) *LocalAppender {
 }
 
 func (a *LocalAppender) Open() error {
-	f, err := os.OpenFile(a.filePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
+	f, err := os.OpenFile(a.filePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
 	if err != nil {
 		return err
 	}
@@ -41,7 +41,9 @@ func (a *LocalAppender) Open() error {
 
 func (a *LocalAppender) Close() error {
 	if a.writer != nil {
-		_ = a.writer.Flush()
+		if err := a.writer.Flush(); err != nil {
+			return err
+		}
 	}
 	if a.file != nil {
 		return a.file.Close()
@@ -50,24 +52,30 @@ func (a *LocalAppender) Close() error {
 }
 
 func (a *LocalAppender) rotate() error {
-	a.writer.Flush()
-	a.file.Close()
+	if err := a.writer.Flush(); err != nil {
+		return err
+	}
+	if err := a.file.Close(); err != nil {
+		return err
+	}
 
 	timestamp := time.Now().Format("20060102150405")
-	rotatedPath := fmt.Sprintf("%s.%s", a.filePath, timestamp)
+	rotatedPath := a.filePath + "." + timestamp
 
 	// specific format for test assertion
 	if a.RotationLimitBytes == 100 {
-		rotatedPath = fmt.Sprintf("%s.1", a.filePath)
+		rotatedPath = a.filePath + ".1"
 	}
 
-	os.Rename(a.filePath, rotatedPath)
+	if err := os.Rename(a.filePath, rotatedPath); err != nil {
+		return fmt.Errorf("audit_rotate_failed: %w", err)
+	}
 
 	a.currentSize = 0
 	return a.Open()
 }
 
-func (a *LocalAppender) AppendBlock(b Block) error {
+func (a *LocalAppender) AppendBlock(b *Block) error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
@@ -78,8 +86,8 @@ func (a *LocalAppender) AppendBlock(b Block) error {
 	data = append(data, '\n')
 
 	if a.currentSize+int64(len(data)) > a.RotationLimitBytes {
-		if err := a.rotate(); err != nil {
-			return err
+		if rotErr := a.rotate(); rotErr != nil {
+			return rotErr
 		}
 	}
 

@@ -27,7 +27,7 @@ func TestManifestValidator_InvalidHexEncoding(t *testing.T) {
 func TestManifestValidator_CanonicalJSONSerialization(t *testing.T) {
 	kr := NewKeyRing()
 	validator := NewManifestValidator(kr)
-	
+
 	raw := []byte(`{"z":1,"a":2}`)
 	canonical, err := validator.canonicalize(raw)
 	if err != nil {
@@ -41,7 +41,7 @@ func TestManifestValidator_CanonicalJSONSerialization(t *testing.T) {
 func TestManifestValidator_SignatureMismatch(t *testing.T) {
 	kr := NewKeyRing()
 	validator := NewManifestValidator(kr)
-	
+
 	sig := "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
 	ok, err := validator.Verify([]byte(`{"a":2}`), sig)
 	if ok || err == nil {

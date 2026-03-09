@@ -21,7 +21,11 @@ func handleAuditCmd(args []string) {
 	case "verify":
 		fmt.Println("Audit Log Cryptographic Integrity Verified: SUCCESS")
 	case "export":
-		b, _ := json.MarshalIndent([]audit.Block{}, "", "  ")
+		b, err := json.MarshalIndent([]audit.Block{}, "", "  ")
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error exporting: %v\n", err)
+			return
+		}
 		fmt.Println(string(b))
 	default:
 		fmt.Println("Unknown audit command:", args[0])

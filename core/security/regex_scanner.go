@@ -6,7 +6,7 @@ import (
 	"sync"
 )
 
-type RegexScanner struct {}
+type RegexScanner struct{}
 
 var (
 	compiledPatterns map[string]*regexp.Regexp

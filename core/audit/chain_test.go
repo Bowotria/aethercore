@@ -22,8 +22,8 @@ func TestChainManager_GenesisBlock(t *testing.T) {
 
 func TestChainManager_HashSerialization(t *testing.T) {
 	cm := NewChainManager()
-	event := AuditEvent{Type: "TEST_EVENT", Actor: "system"}
-	h := cm.calculateHash(Block{Index: 1, Event: event, PreviousHash: cm.blocks[0].Hash})
+	event := Event{Type: "TEST_EVENT", Actor: "system"}
+	h := cm.calculateHash(&Block{Index: 1, Event: event, PreviousHash: cm.blocks[0].Hash})
 	if len(h) != 64 {
 		t.Fatalf("expected valid SHA-256 hex string")
 	}
@@ -31,8 +31,8 @@ func TestChainManager_HashSerialization(t *testing.T) {
 
 func TestChainManager_AppendLinkage(t *testing.T) {
 	cm := NewChainManager()
-	event := AuditEvent{Type: "AUTH_LOGIN", Actor: "user1"}
-	cm.Append(event)
+	event := Event{Type: "AUTH_LOGIN", Actor: "user1"}
+	cm.Append(&event)
 
 	if len(cm.blocks) != 2 {
 		t.Fatalf("expected chain length 2")
@@ -48,8 +48,8 @@ func TestChainManager_AppendLinkage(t *testing.T) {
 
 func TestChainManager_VerifyChain(t *testing.T) {
 	cm := NewChainManager()
-	cm.Append(AuditEvent{Type: "EVENT_1"})
-	cm.Append(AuditEvent{Type: "EVENT_2"})
+	cm.Append(&Event{Type: "EVENT_1"})
+	cm.Append(&Event{Type: "EVENT_2"})
 
 	ok, err := cm.VerifyChain()
 	if !ok || err != nil {

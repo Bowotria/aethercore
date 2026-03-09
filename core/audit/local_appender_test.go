@@ -29,8 +29,8 @@ func TestLocalAppender_FileCreationStrictPerms(t *testing.T) {
 	}
 
 	perm := info.Mode().Perm()
-	if perm != 0600 && perm != 0666 {
-		t.Fatalf("expected strict 0600 (or 0666 on Windows) permissions, got %v", perm)
+	if perm != 0o600 && perm != 0o666 {
+		t.Fatalf("expected strict 0o600 (or 0o666 on Windows) permissions, got %v", perm)
 	}
 }
 
@@ -41,11 +41,11 @@ func TestLocalAppender_ConcurrentWriteSafety(t *testing.T) {
 	defer appender.Close()
 
 	var wg sync.WaitGroup
-	for i := 0; i < 100; i++ {
+	for i := range 100 {
 		wg.Add(1)
 		go func(idx int) {
 			defer wg.Done()
-			err := appender.AppendBlock(Block{Index: uint64(idx)})
+			err := appender.AppendBlock(&Block{Index: uint64(idx)})
 			if err != nil {
 				t.Errorf("expected successful write")
 			}
@@ -61,7 +61,7 @@ func TestLocalAppender_Rotation(t *testing.T) {
 	appender.RotationLimitBytes = 100
 	_ = appender.Open()
 
-	b := Block{Index: 1, PreviousHash: "000"}
+	b := &Block{Index: 1, PreviousHash: "000"}
 	appender.AppendBlock(b)
 	appender.AppendBlock(b)
 	appender.AppendBlock(b)

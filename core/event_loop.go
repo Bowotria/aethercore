@@ -51,7 +51,7 @@ type Engine struct {
 	taskPool      sync.Pool
 	resultPool    sync.Pool
 	guard         security.PromptGuard
-	audit         audit.AuditLogger
+	audit         audit.Logger
 }
 
 // NewEngine initializes the core event loop with bounded goroutines.
@@ -91,7 +91,7 @@ func (e *Engine) RegisterTool(t Tool) error {
 }
 
 // WithAuditLogger attaches the cryptographic audit sidecar to record all activities immutably.
-func (e *Engine) WithAuditLogger(l audit.AuditLogger) *Engine {
+func (e *Engine) WithAuditLogger(l audit.Logger) *Engine {
 	e.audit = l
 	return e
 }
@@ -99,7 +99,7 @@ func (e *Engine) WithAuditLogger(l audit.AuditLogger) *Engine {
 // Start boots the worker pool. Sub-50ms target for Pico Mode.
 func (e *Engine) Start() {
 	if e.audit != nil {
-		_ = e.audit.LogEvent(context.Background(), audit.AuditEvent{
+		_ = e.audit.LogEvent(context.Background(), &audit.Event{
 			ID:        "sys-boot",
 			Timestamp: time.Now(),
 			Type:      "AUDIT_ENGINE_BOOT",
@@ -237,7 +237,7 @@ func (e *Engine) executeEphemeral(t *Task) (string, error) {
 
 	for iteration := range maxAgentIterations {
 		if e.audit != nil {
-			_ = e.audit.LogEvent(ctx, audit.AuditEvent{
+			_ = e.audit.LogEvent(ctx, &audit.Event{
 				ID:        t.ID + "-req",
 				Timestamp: time.Now(),
 				Type:      "AUDIT_LLM_REQUEST",
@@ -301,7 +301,7 @@ func (e *Engine) dispatchTool(ctx context.Context, taskID string, call ToolCall)
 		toolLog := WithComponent("tool_executor").With(slog.String("tool_name", call.Name))
 		toolLog.Debug("tool_execution_started", slog.String("arguments", call.Arguments))
 		if e.audit != nil {
-			_ = e.audit.LogEvent(ctx, audit.AuditEvent{
+			_ = e.audit.LogEvent(ctx, &audit.Event{
 				ID:        taskID + "-tool-exec",
 				Timestamp: time.Now(),
 				Type:      "AUDIT_TOOL_EXECUTE",
@@ -315,26 +315,8 @@ func (e *Engine) dispatchTool(ctx context.Context, taskID string, call ToolCall)
 		toolDuration := time.Since(toolStart)
 
 		if execErr == nil {
-			if e.guard != nil {
-				violationOpt := e.guard.Scan(ctx, string(res), security.GuardConfig{})
-				if !violationOpt.IsSafe {
-					if e.audit != nil {
-						_ = e.audit.LogEvent(ctx, audit.AuditEvent{
-							ID:        taskID + "-violation",
-							Timestamp: time.Now(),
-							Type:      "AUDIT_SECURITY_VIOLATION",
-							Actor:     "prompt-guard",
-							Metadata:  map[string]interface{}{"task_id": taskID, "reason": violationOpt.Violations[0].Description},
-						})
-					}
-
-					toolLog.Warn("tool_output_security_violation_detected",
-						slog.String("tool", call.Name),
-						slog.String("rule", violationOpt.Violations[0].Category),
-						slog.String("description", violationOpt.Violations[0].Description),
-					)
-					return "", fmt.Errorf("security_violation_tool_output: %s", violationOpt.Violations[0].Description)
-				}
+			if scanErr := e.verifyToolOutput(ctx, taskID, call.Name, res); scanErr != nil {
+				return "", scanErr
 			}
 		}
 
@@ -343,7 +325,7 @@ func (e *Engine) dispatchTool(ctx context.Context, taskID string, call ToolCall)
 			return "", execErr
 		}
 		toolLog.Info("tool_execution_completed", slog.Duration("duration_ms", toolDuration))
-		return string(res), nil
+		return res, nil
 	}
 
 	// Unknown tool — forward to Rust sandbox
@@ -356,12 +338,12 @@ func (e *Engine) dispatchTool(ctx context.Context, taskID string, call ToolCall)
 		sbDuration := time.Since(sbStart)
 
 		if e.audit != nil {
-			_ = e.audit.LogEvent(ctx, audit.AuditEvent{
+			_ = e.audit.LogEvent(ctx, &audit.Event{
 				ID:        taskID + "-tool-res",
 				Timestamp: time.Now(),
 				Type:      "AUDIT_TOOL_RESULT",
-				Actor:     "tool",
-				Metadata:  map[string]interface{}{"task_id": taskID, "tool": call.Name, "success": sbErr == nil},
+				Actor:     "engine",
+				Metadata:  map[string]interface{}{"task_id": taskID, "tool_name": call.Name, "duration_ms": sbDuration.Milliseconds()},
 			})
 		}
 
@@ -373,16 +355,41 @@ func (e *Engine) dispatchTool(ctx context.Context, taskID string, call ToolCall)
 			return "", sbErr
 		}
 
-		sbLog.Info("sandbox_execution_completed",
-			slog.Duration("duration_ms", sbDuration),
-			slog.String("output", output),
-		)
+		if scanErr := e.verifyToolOutput(ctx, taskID, call.Name, output); scanErr != nil {
+			return "", scanErr
+		}
+
+		sbLog.Info("sandbox_execution_completed", slog.Duration("duration_ms", sbDuration))
 		return output, nil
 	}
 
-	WithComponent("tool_orchestrator").Warn("tool_not_found_in_registry",
-		slog.String("tool_name", call.Name),
-		slog.String("hint", "attach a sandbox client via WithSandbox() to enable remote dispatch"),
+	return "", fmt.Errorf("tool_not_found: %s", call.Name)
+}
+
+func (e *Engine) verifyToolOutput(ctx context.Context, taskID, toolName, output string) error {
+	if e.guard == nil {
+		return nil
+	}
+
+	res := e.guard.Scan(ctx, output, security.GuardConfig{})
+	if res.IsSafe {
+		return nil
+	}
+
+	if e.audit != nil {
+		_ = e.audit.LogEvent(ctx, &audit.Event{
+			ID:        taskID + "-violation",
+			Timestamp: time.Now(),
+			Type:      "AUDIT_SECURITY_VIOLATION",
+			Actor:     "prompt-guard",
+			Metadata:  map[string]interface{}{"task_id": taskID, "reason": res.Violations[0].Description},
+		})
+	}
+
+	WithComponent("tool_executor").Warn("tool_output_security_violation_detected",
+		slog.String("tool", toolName),
+		slog.String("rule", res.Violations[0].Category),
+		slog.String("description", res.Violations[0].Description),
 	)
-	return "", fmt.Errorf("tool %q not found and no sandbox attached", call.Name)
+	return fmt.Errorf("security_violation_tool_output: %s", res.Violations[0].Description)
 }

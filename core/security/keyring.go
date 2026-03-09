@@ -10,6 +10,7 @@ import (
 type KeyRing struct {
 	trustedKeys []ed25519.PublicKey
 }
+
 func NewKeyRing() *KeyRing { return &KeyRing{} }
 
 func (k *KeyRing) LoadPEM(pemData []byte) error {

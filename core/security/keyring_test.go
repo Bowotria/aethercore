@@ -19,7 +19,7 @@ func TestKeyRing_LoadValidEd25519PublicKey(t *testing.T) {
 
 func TestKeyRing_LoadMalformedPublicKey(t *testing.T) {
 	kr := NewKeyRing()
-	
+
 	// Valid PEM block but random data inside
 	pemData := `-----BEGIN PUBLIC KEY-----
 MCowBQYDK2VwAyEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==

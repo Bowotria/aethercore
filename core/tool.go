@@ -66,7 +66,10 @@ func (r *ToolRegistry) Register(t Tool) error {
 
 	m := t.Manifest()
 	if r.verifier != nil {
-		manifestBytes, _ := json.Marshal(m)
+		manifestBytes, err := json.Marshal(m)
+		if err != nil {
+			return fmt.Errorf("tool_marshal_failed: %w", err)
+		}
 		ok, err := r.verifier.Verify(manifestBytes, "")
 		if !ok || err != nil {
 			errStr := "signature verification rejected"

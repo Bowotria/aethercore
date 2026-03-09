@@ -2,8 +2,8 @@ package audit
 
 import "time"
 
-// AuditEvent represents a single immutable action within the system.
-type AuditEvent struct {
+// Event represents a single immutable action within the system.
+type Event struct {
 	ID        string                 `json:"id"`
 	Timestamp time.Time              `json:"timestamp"`
 	Type      string                 `json:"type"`
