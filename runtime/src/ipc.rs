@@ -10,8 +10,18 @@ use std::os::unix::net::UnixListener;
 use std::path::Path;
 use tokio_stream::wrappers::UnixListenerStream;
 
-#[derive(Debug, Default)]
-pub struct SandboxService {}
+use crate::manifest::Manifest;
+use crate::sandbox::CgroupGuard;
+use crate::wasm_engine::WasmSandbox;
+use ed25519_dalek::PublicKey;
+use std::sync::Arc;
+
+#[derive(Debug, Clone)]
+pub struct SandboxService {
+    pub manifest: Arc<Manifest>,
+    pub pubkey: PublicKey,
+    pub wasm_engine: Arc<WasmSandbox>,
+}
 
 #[tonic::async_trait]
 impl Sandbox for SandboxService {
@@ -20,20 +30,38 @@ impl Sandbox for SandboxService {
         request: Request<ToolRequest>,
     ) -> Result<Response<ToolResponse>, Status> {
         let req = request.into_inner();
-        
-        // At this layer, the Rust engine would cross-reference req.tool_name against 
-        // the capabilities manifest. For Day 10, we simply establish the IPC chain.
-        println!(
-            r#"{{"level":"INFO","msg":"tool_received_via_ipc","tool":"{}"}}"#,
-            req.tool_name
-        );
+
+        // 1. Locate tool in manifest
+        let tool = self.manifest
+            .tools
+            .iter()
+            .find(|t| t.name == req.tool_name)
+            .ok_or_else(|| Status::not_found(format!("tool {} not registered in manifest", req.tool_name)))?;
+
+        // 2. Cryptographic Verification
+        if let Err(e) = tool.verify(&self.pubkey) {
+            eprintln!(
+                r#"{{"level":"ERROR","msg":"manifest_verification_failed","tool":"{}","error":"{:?}"}}"#,
+                req.tool_name, e
+            );
+            return Err(Status::permission_denied("manifest_verification_failed"));
+        }
+
+        // 3. Apply enforcement cgroups per request
+        let memory_limit_bytes = tool.capabilities.max_memory_mb * 1024 * 1024;
+        let _guard = CgroupGuard::apply(&tool.name, memory_limit_bytes).map_err(|e| {
+            Status::internal(format!("cgroup_apply_failed: {}", e))
+        })?;
+
+        // 4. Execute inside WASM (currently without WASI for Day 10 stableness, assuming basic fuel)
+        let fuel_limit = tool.capabilities.max_cpu_ms * 10_000;
+        let output = self.wasm_engine.execute(&[], fuel_limit).unwrap_or_else(|e| {
+            format!(r#"{{"error": "{}"}}"#, e)
+        });
 
         let res = ToolResponse {
             success: true,
-            output_json: format!(
-                r#"{{"sandbox_executed":true,"received_payload":{}}}"#,
-                req.payload_json
-            ),
+            output_json: output,
             error_message: String::new(),
         };
 
