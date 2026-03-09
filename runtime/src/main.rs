@@ -60,7 +60,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .tools
         .iter()
         .filter_map(|tool| {
-            let limit_bytes = tool.memory_limit_mb * 1024 * 1024;
+            let limit_bytes = tool.capabilities.max_memory_mb * 1024 * 1024;
             match sandbox::CgroupGuard::apply(&tool.name, limit_bytes) {
                 Ok(guard) => Some(guard),
                 Err(e) => {
