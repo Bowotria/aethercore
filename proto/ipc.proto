@@ -11,6 +11,7 @@ service Sandbox {
 message ToolRequest {
   string tool_name = 1;
   string payload_json = 2;
+  string signature_hex = 3;
 }
 
 message ToolResponse {
