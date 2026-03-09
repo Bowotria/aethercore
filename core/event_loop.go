@@ -326,6 +326,16 @@ func (e *Engine) dispatchTool(ctx context.Context, call ToolCall) (string, error
 		output, sbErr := e.sandboxClient.ExecuteTool(ctx, call.Name, call.Arguments, "")
 		sbDuration := time.Since(sbStart)
 
+		if e.audit != nil {
+			_ = e.audit.LogEvent(ctx, audit.AuditEvent{
+				ID:        taskID + "-tool-res",
+				Timestamp: time.Now(),
+				Type:      "AUDIT_TOOL_RESULT",
+				Actor:     "tool",
+				Metadata:  map[string]interface{}{"task_id": taskID, "tool": call.Name, "success": sbErr == nil},
+			})
+		}
+
 		if sbErr != nil {
 			sbLog.Error("sandbox_execution_failed",
 				slog.String("error", sbErr.Error()),
