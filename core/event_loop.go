@@ -309,6 +309,34 @@ func (e *Engine) dispatchTool(ctx context.Context, call ToolCall) (string, error
 		res, execErr := tool.Execute(ctx, call.Arguments)
 		toolDuration := time.Since(toolStart)
 
+		if execErr == nil {
+			if e.guard != nil {
+				taskID, ok := ctx.Value(TaskIDContextKey).(string)
+				if !ok {
+					taskID = "unknown" // Fallback if task ID not in context
+				}
+				violationOpt := e.guard.Scan(ctx, string(res), security.GuardConfig{})
+				if !violationOpt.IsSafe {
+					if e.audit != nil {
+						_ = e.audit.LogEvent(ctx, audit.AuditEvent{
+							ID:        taskID + "-violation",
+							Timestamp: time.Now(),
+							Type:      "AUDIT_SECURITY_VIOLATION",
+							Actor:     "prompt-guard",
+							Metadata:  map[string]interface{}{"task_id": taskID, "reason": violationOpt.Violations[0].Description},
+						})
+					}
+
+					toolLog.Warn("tool_output_security_violation_detected",
+						slog.String("tool", call.Name),
+						slog.String("rule", violationOpt.Violations[0].Category),
+						slog.String("description", violationOpt.Violations[0].Description),
+					)
+					return "", fmt.Errorf("security_violation_tool_output: %s", violationOpt.Violations[0].Description)
+				}
+			}
+		}
+
 		if execErr != nil {
 			toolLog.Error("tool_execution_failed", slog.String("error", execErr.Error()), slog.Duration("duration_ms", toolDuration))
 			return "", execErr
