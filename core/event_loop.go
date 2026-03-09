@@ -208,6 +208,11 @@ func (e *Engine) executeEphemeral(t *Task) (string, error) {
 		{Role: "user", Content: t.Input},
 	}
 
+	guardRes := e.guard.Scan(ctx, t.Input, security.GuardConfig{})
+	if !guardRes.IsSafe {
+		return "", fmt.Errorf("security_violation: %s", guardRes.Violations[0].Description)
+	}
+
 	for iteration := range maxAgentIterations {
 		resp, err := e.adapter.GenerateWithTools(ctx, messages, manifests)
 		if err != nil {
