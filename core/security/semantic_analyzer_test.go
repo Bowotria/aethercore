@@ -12,3 +12,11 @@ func TestSemanticAnalyzer_SafeInput(t *testing.T) {
 		t.Errorf("Expected IsSafe=true")
 	}
 }
+
+func TestSemanticAnalyzer_TokenDensity(t *testing.T) {
+	analyzer := NewSemanticAnalyzer()
+	result := analyzer.Scan(context.Background(), "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", GuardConfig{})
+	if result.IsSafe {
+		t.Errorf("Expected token density anomaly to fail, got IsSafe=true")
+	}
+}
