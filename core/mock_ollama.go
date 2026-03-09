@@ -20,9 +20,17 @@ func (m *MockOllamaAdapter) Generate(ctx context.Context, systemPrompt, userInpu
 }
 
 // GenerateWithTools simulates an LLM intercepting a prompt and deciding to trigger a specific tool.
-func (m *MockOllamaAdapter) GenerateWithTools(ctx context.Context, systemPrompt, userInput string, tools []ToolManifest) (LLMResponse, error) {
-	// If the user explicitly asks for system info, forcefully return the ToolCall
-	if strings.Contains(strings.ToLower(userInput), "system info") {
+func (m *MockOllamaAdapter) GenerateWithTools(ctx context.Context, messages []Message, tools []ToolManifest) (LLMResponse, error) {
+	// Simple mock logic: if the user explicitly asks for system info in the last message, forcefully return the ToolCall
+	var lastUserInput string
+	for i := len(messages) - 1; i >= 0; i-- {
+		if messages[i].Role == "user" {
+			lastUserInput = messages[i].Content
+			break
+		}
+	}
+
+	if strings.Contains(strings.ToLower(lastUserInput), "system info") {
 		return LLMResponse{
 			Content: "",
 			ToolCalls: []ToolCall{
