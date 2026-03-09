@@ -1,6 +1,7 @@
 package audit
 
 import (
+	"bufio"
 	"encoding/json"
 	"os"
 	"sync"
@@ -10,6 +11,7 @@ type LocalAppender struct {
 	mu       sync.Mutex
 	filePath string
 	file     *os.File
+	writer   *bufio.Writer
 }
 
 func NewLocalAppender(path string) *LocalAppender {
@@ -22,10 +24,14 @@ func (a *LocalAppender) Open() error {
 		return err
 	}
 	a.file = f
+	a.writer = bufio.NewWriter(f)
 	return nil
 }
 
 func (a *LocalAppender) Close() error {
+	if a.writer != nil {
+		_ = a.writer.Flush()
+	}
 	if a.file != nil {
 		return a.file.Close()
 	}
@@ -41,6 +47,9 @@ func (a *LocalAppender) AppendBlock(b Block) error {
 		return err
 	}
 	data = append(data, '\n')
-	_, err = a.file.Write(data)
-	return err
+	_, err = a.writer.Write(data)
+	if err != nil {
+		return err
+	}
+	return a.writer.Flush()
 }
