@@ -63,7 +63,7 @@ func NewEngine(adapter llm.LLMAdapter, workerCount, queueSize int) *Engine {
 		taskQueue:   make(chan *Task, queueSize),
 		resultQueue: make(chan *Result, queueSize),
 		workerCount: workerCount,
-		quit:        make([]llm.Message{}, 0),
+		quit:        make(chan struct{}),
 		guard: security.NewOrchestratorGuard(
 			security.NewRegexScanner(),
 			security.NewSemanticAnalyzer(),

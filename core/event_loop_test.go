@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/fzihak/aethercore/core/audit"
+	"github.com/fzihak/aethercore/core/llm"
 )
 
 // MockLLMAdapter provides a dummy LLM for testing.
@@ -17,9 +18,9 @@ func (m *MockLLMAdapter) Generate(_ context.Context, systemPrompt, userInput str
 	return "Mock Response", nil
 }
 
-func (m *MockLLMAdapter) GenerateWithTools(_ context.Context, messages []Message, tools []ToolManifest) (LLMResponse, error) {
+func (m *MockLLMAdapter) GenerateWithTools(_ context.Context, messages []llm.Message, tools []llm.ToolManifest) (llm.LLMResponse, error) {
 	// Dummy response for event loop test
-	return LLMResponse{
+	return llm.LLMResponse{
 		Content: "Mock Content with Tools",
 	}, nil
 }
