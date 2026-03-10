@@ -8,18 +8,14 @@ import (
 func TestCostRouter_Select(t *testing.T) {
 	t.Run("selects cheapest healthy provider", func(t *testing.T) {
 		p1 := &MockProvider{
-			name:   "expensive-gpt4",
-			status: StatusHealthy,
-			Metadata: func() ModelMetadata {
-				return ModelMetadata{CostPer1kTokens: 0.03, CapabilityRank: 10}
-			}(),
+			name:     "expensive-gpt4",
+			status:   StatusHealthy,
+			metadata: ModelMetadata{CostPer1kTokens: 0.03, CapabilityRank: 10},
 		}
 		p2 := &MockProvider{
-			name:   "cheap-ollama",
-			status: StatusHealthy,
-			Metadata: func() ModelMetadata {
-				return ModelMetadata{CostPer1kTokens: 0.00, CapabilityRank: 5}
-			}(),
+			name:     "cheap-ollama",
+			status:   StatusHealthy,
+			metadata: ModelMetadata{CostPer1kTokens: 0.00, CapabilityRank: 5},
 		}
 
 		router := NewCostRouter([]Provider{p1, p2}, 1) // Min capability 1
@@ -34,18 +30,14 @@ func TestCostRouter_Select(t *testing.T) {
 
 	t.Run("selects expensive if cheap is offline", func(t *testing.T) {
 		p1 := &MockProvider{
-			name:   "expensive-gpt4",
-			status: StatusHealthy,
-			Metadata: func() ModelMetadata {
-				return ModelMetadata{CostPer1kTokens: 0.03, CapabilityRank: 10}
-			}(),
+			name:     "expensive-gpt4",
+			status:   StatusHealthy,
+			metadata: ModelMetadata{CostPer1kTokens: 0.03, CapabilityRank: 10},
 		}
 		p2 := &MockProvider{
-			name:   "cheap-ollama",
-			status: StatusOffline,
-			Metadata: func() ModelMetadata {
-				return ModelMetadata{CostPer1kTokens: 0.00, CapabilityRank: 5}
-			}(),
+			name:     "cheap-ollama",
+			status:   StatusOffline,
+			metadata: ModelMetadata{CostPer1kTokens: 0.00, CapabilityRank: 5},
 		}
 
 		router := NewCostRouter([]Provider{p1, p2}, 1)
@@ -60,18 +52,14 @@ func TestCostRouter_Select(t *testing.T) {
 
 	t.Run("respects capability requirements", func(t *testing.T) {
 		p1 := &MockProvider{
-			name:   "high-capability",
-			status: StatusHealthy,
-			Metadata: func() ModelMetadata {
-				return ModelMetadata{CostPer1kTokens: 0.10, CapabilityRank: 9}
-			}(),
+			name:     "high-capability",
+			status:   StatusHealthy,
+			metadata: ModelMetadata{CostPer1kTokens: 0.10, CapabilityRank: 9},
 		}
 		p2 := &MockProvider{
-			name:   "low-capability",
-			status: StatusHealthy,
-			Metadata: func() ModelMetadata {
-				return ModelMetadata{CostPer1kTokens: 0.01, CapabilityRank: 3}
-			}(),
+			name:     "low-capability",
+			status:   StatusHealthy,
+			metadata: ModelMetadata{CostPer1kTokens: 0.01, CapabilityRank: 3},
 		}
 
 		router := NewCostRouter([]Provider{p1, p2}, 7) // Requires 7+

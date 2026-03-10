@@ -9,12 +9,13 @@ type MockProvider struct {
 	name     string
 	status   Status
 	priority Priority
+	metadata ModelMetadata
 }
 
 func (m *MockProvider) Name() string            { return m.name }
 func (m *MockProvider) Status() Status          { return m.status }
 func (m *MockProvider) Priority() Priority      { return m.priority }
-func (m *MockProvider) Metadata() ModelMetadata { return ModelMetadata{} }
+func (m *MockProvider) Metadata() ModelMetadata { return m.metadata }
 func (m *MockProvider) Execute(ctx context.Context, task string) (string, error) {
 	return "mock-result", nil
 }
