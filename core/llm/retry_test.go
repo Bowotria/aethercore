@@ -12,7 +12,7 @@ type ErrorMockProvider struct {
 	calls     int
 }
 
-func (m *ErrorMockProvider) Generate(ctx context.Context, system, user string) (string, error) {
+func (m *ErrorMockProvider) Execute(ctx context.Context, task string) (string, error) {
 	m.calls++
 	if m.calls <= m.failCount {
 		return "", errors.New("rate limit exceeded (429)")

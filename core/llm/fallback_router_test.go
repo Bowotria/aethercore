@@ -14,6 +14,9 @@ type MockProvider struct {
 func (m *MockProvider) Name() string       { return m.name }
 func (m *MockProvider) Status() Status     { return m.status }
 func (m *MockProvider) Priority() Priority { return m.priority }
+func (m *MockProvider) Execute(ctx context.Context, task string) (string, error) {
+	return "mock-result", nil
+}
 
 func TestFallbackRouter_Select(t *testing.T) {
 	t.Run("selects highest priority healthy provider", func(t *testing.T) {
