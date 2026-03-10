@@ -78,7 +78,7 @@ func (m *MockPicoLLMAdapter) Generate(_ context.Context, systemPrompt, userInput
 	return "Default Mock Response", nil
 }
 
-func (m *MockPicoLLMAdapter) GenerateWithTools(_ context.Context, messages []Message, tools []ToolManifest) (LLMResponse, error) {
+func (m *MockPicoLLMAdapter) GenerateWithTools(_ context.Context, messages []Message, tools []llm.ToolManifest) (LLMResponse, error) {
 	if m.CallCount < len(m.Responses) {
 		resp := m.Responses[m.CallCount]
 		m.CallCount++
@@ -188,7 +188,7 @@ func TestEventLoopGoroutineLeak(t *testing.T) {
 
 type PoisonLLM struct{}
 
-func (m *PoisonLLM) GenerateWithTools(ctx context.Context, messages []Message, tools []ToolManifest) (LLMResponse, error) {
+func (m *PoisonLLM) GenerateWithTools(ctx context.Context, messages []Message, tools []llm.ToolManifest) (LLMResponse, error) {
 	if len(messages) == 2 {
 		return LLMResponse{
 			Content:   "",

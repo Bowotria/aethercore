@@ -7,7 +7,8 @@ import (
 	"github.com/fzihak/aethercore/core"
 )
 
-func TestSysInfoTool(t *testing.T) {
+func TestSysInfoTool(t *testing.T	"github.com/fzihak/aethercore/core/llm"
+) {
 	tool := &SysInfoTool{}
 
 	manifest := tool.Manifest()
@@ -16,7 +17,7 @@ func TestSysInfoTool(t *testing.T) {
 	}
 
 	// Ensure capabilities are strictly constrained
-	if len(manifest.Capabilities) != 1 || manifest.Capabilities[0] != core.CapState {
+	if len(manifest.Capabilities) != 1 || manifest.Capabilities[0] != llm.CapState {
 		t.Fatal("SysInfo tool should strictly only require CapState")
 	}
 
