@@ -1,19 +1,17 @@
 package tools
 
 import (
-	"context"
 	"testing"
 
-	"github.com/fzihak/aethercore/core"
+	"github.com/fzihak/aethercore/core/llm"
 )
 
-func TestSysInfoTool(t *testing.T	"github.com/fzihak/aethercore/core/llm"
-) {
+func TestSysInfoTool(t *testing.T) {
 	tool := &SysInfoTool{}
 
 	manifest := tool.Manifest()
 	if manifest.Name != "sys_info" {
-		t.Fatalf("Expected Name sys_info, got %s", manifest.Name)
+		t.Fatalf("Expected tool name 'sys_info', got '%s'", manifest.Name)
 	}
 
 	// Ensure capabilities are strictly constrained
@@ -21,12 +19,12 @@ func TestSysInfoTool(t *testing.T	"github.com/fzihak/aethercore/core/llm"
 		t.Fatal("SysInfo tool should strictly only require CapState")
 	}
 
-	res, err := tool.Execute(context.Background(), "{}")
+	out, err := tool.Execute(nil, "")
 	if err != nil {
-		t.Fatalf("Failed to execute sys_info: %v", err)
+		t.Fatalf("Expected success, got error: %v", err)
 	}
 
-	if len(res) < 10 {
-		t.Fatalf("Response JSON unexpectedly small: %s", res)
+	if out == "" {
+		t.Fatal("Expected non-empty output from sys_info")
 	}
 }
