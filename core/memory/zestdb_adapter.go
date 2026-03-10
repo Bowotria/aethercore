@@ -3,6 +3,7 @@ package memory
 import (
 	"context"
 	"errors"
+	"strings"
 	"sync"
 )
 
@@ -52,4 +53,52 @@ func (s *ZestDBStorage) Delete(ctx context.Context, id string) error {
 
 	delete(s.data, id)
 	return nil
+}
+
+// Search queries the in-memory persistence layer for entries matching the criteria.
+func (s *ZestDBStorage) Search(ctx context.Context, query string, opts SearchOptions) ([]MemoryEntry, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	var results []MemoryEntry
+	for _, entry := range s.data {
+		// Simple keyword match in content
+		if query != "" && !containsIgnoreCase(entry.Content, query) {
+			continue
+		}
+
+		// Filter by tags in metadata if provided
+		if len(opts.Tags) > 0 {
+			match := false
+			for _, tag := range opts.Tags {
+				if _, exists := entry.Metadata[tag]; exists {
+					match = true
+					break
+				}
+			}
+			if !match {
+				continue
+			}
+		}
+
+		results = append(results, entry)
+		if opts.Limit > 0 && len(results) >= opts.Limit {
+			break
+		}
+	}
+
+	return results, nil
+}
+
+// Close releases any resources held by the storage adapter.
+func (s *ZestDBStorage) Close() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.data = nil
+	return nil
+}
+
+func containsIgnoreCase(s, substr string) bool {
+	return strings.Contains(strings.ToLower(s), strings.ToLower(substr))
 }
