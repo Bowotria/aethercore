@@ -6,19 +6,19 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/fzihak/aethercore/core"
+	"github.com/fzihak/aethercore/core/llm"
 )
 
 // SysInfoTool provides baseline hardware and runtime heuristics for the agent.
 type SysInfoTool struct{}
 
 // Manifest strictly defines the capability bounds of this native tool.
-func (s *SysInfoTool) Manifest() core.ToolManifest {
-	return core.ToolManifest{
+func (s *SysInfoTool) Manifest() llm.ToolManifest {
+	return llm.ToolManifest{
 		Name:         "sys_info",
 		Description:  "Retrieves critical operating system and hardware runtime telemetry",
 		Parameters:   json.RawMessage(`{ "type": "object", "properties": {} }`),
-		Capabilities: []core.Capability{core.CapState}, // Does not require network or disk IO
+		Capabilities: []llm.Capability{llm.CapState}, // Does not require network or disk IO
 		MaxRuntimeMs: 100,
 		MemoryLimit:  2,
 	}
