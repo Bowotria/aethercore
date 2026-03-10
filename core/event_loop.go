@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/fzihak/aethercore/core/audit"
+	"github.com/fzihak/aethercore/core/llm"
 	"github.com/fzihak/aethercore/core/security"
 )
 
@@ -39,7 +40,7 @@ type Result struct {
 
 // Engine coordinates the worker pool and ephemeral execution lifecycle.
 type Engine struct {
-	adapter       LLMAdapter
+	adapter       llm.LLMAdapter
 	tools         *ToolRegistry
 	sandboxClient *SandboxClient // optional: Layer 2 Rust Sandbox for unknown tools
 	taskQueue     chan *Task
@@ -55,14 +56,14 @@ type Engine struct {
 }
 
 // NewEngine initializes the core event loop with bounded goroutines.
-func NewEngine(adapter LLMAdapter, workerCount, queueSize int) *Engine {
+func NewEngine(adapter llm.LLMAdapter, workerCount, queueSize int) *Engine {
 	e := &Engine{
 		adapter:     adapter,
 		tools:       NewToolRegistry(nil),
 		taskQueue:   make(chan *Task, queueSize),
 		resultQueue: make(chan *Result, queueSize),
 		workerCount: workerCount,
-		quit:        make(chan struct{}),
+		quit:        make([]llm.Message{}, 0),
 		guard: security.NewOrchestratorGuard(
 			security.NewRegexScanner(),
 			security.NewSemanticAnalyzer(),
@@ -220,11 +221,9 @@ func (e *Engine) executeEphemeral(t *Task) (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 
-	manifests := e.tools.Manifests()
-	messages := []Message{
-		{Role: "system", Content: t.System},
-		{Role: "user", Content: t.Input},
-	}
+	var messages []llm.Message
+	messages = append(messages, llm.Message{Role: "system", Content: "You are AetherCore Kernel. Execute the objective using tools."})
+	messages = append(messages, llm.Message{Role: "user", Content: t.Input})
 
 	guardRes := e.guard.Scan(ctx, t.Input, security.GuardConfig{})
 	if !guardRes.IsSafe {
@@ -246,26 +245,26 @@ func (e *Engine) executeEphemeral(t *Task) (string, error) {
 			})
 		}
 
-		resp, err := e.adapter.GenerateWithTools(ctx, messages, manifests)
+		res, err := e.adapter.GenerateWithTools(ctx, messages, e.tools.Manifests())
 		if err != nil {
 			return "", fmt.Errorf("llm_iter_%d: %w", iteration, err)
 		}
 
 		// LLM decided it's done — no more tool calls
-		if len(resp.ToolCalls) == 0 {
-			return resp.Content, nil
+		if len(res.ToolCalls) == 0 {
+			return res.Content, nil
 		}
 
 		// Append assistant turn to history
-		messages = append(messages, Message{
+		messages = append(messages, llm.Message{
 			Role:      "assistant",
-			Content:   resp.Content,
-			ToolCalls: resp.ToolCalls,
+			Content:   res.Content,
+			ToolCalls: res.ToolCalls,
 		})
 
 		// Execute tools, feed results back
-		var toolResults []ToolResultMessage
-		for _, call := range resp.ToolCalls {
+		var results []llm.ToolResultMessage
+		for _, call := range res.ToolCalls {
 			result, execErr := e.dispatchTool(ctx, t.ID, call)
 
 			var contentStr string
@@ -278,16 +277,16 @@ func (e *Engine) executeEphemeral(t *Task) (string, error) {
 				contentStr = result
 			}
 
-			toolResults = append(toolResults, ToolResultMessage{
+			results = append(results, llm.ToolResultMessage{
 				ToolCallID: call.ID,
 				Content:    contentStr,
 				IsError:    execErr != nil,
 			})
 		}
 
-		messages = append(messages, Message{
+		messages = append(messages, llm.Message{
 			Role:        "tool",
-			ToolResults: toolResults,
+			ToolResults: results,
 		})
 	}
 
@@ -295,7 +294,7 @@ func (e *Engine) executeEphemeral(t *Task) (string, error) {
 }
 
 // dispatchTool dynamically resolves execution to Layer 0 (internal) or Layer 2 (sandbox).
-func (e *Engine) dispatchTool(ctx context.Context, taskID string, call ToolCall) (string, error) {
+func (e *Engine) dispatchTool(ctx context.Context, taskID string, call llm.ToolCall) (string, error) {
 	tool, err := e.tools.Get(call.Name)
 	if err == nil {
 		toolLog := WithComponent("tool_executor").With(slog.String("tool_name", call.Name))
